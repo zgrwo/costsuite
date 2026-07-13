@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>BomAddIn.Data</AssemblyName>
+    <RootNamespace>BomAddIn.Data</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper" Version="2.1.35" />
+    <PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
+    <PackageReference Include="DuckDB.NET.Data" Version="1.0.2" />
+    <PackageReference Include="Polly" Version="8.4.0" />
+    <PackageReference Include="dbup" Version="5.0.40" />
+    <PackageReference Include="dbup-sqlite" Version="5.0.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BomAddIn.Infrastructure\BomAddIn.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Migrations\*.sql" />
+  </ItemGroup>
+</Project>

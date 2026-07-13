@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang='en'>
+<head>
+<meta charset='utf-8' />
+<title>BomAddIn.PerformanceTests.BomVarianceBenchmarks-20260713-001826</title>
+
+<style type="text/css">
+	table { border-collapse: collapse; display: block; width: 100%; overflow: auto; }
+	td, th { padding: 6px 13px; border: 1px solid #ddd; text-align: right; }
+	tr { background-color: #fff; border-top: 1px solid #ccc; }
+	tr:nth-child(even) { background: #f8f8f8; }
+</style>
+</head>
+<body>
+<pre><code>
+BenchmarkDotNet v0.13.12, Windows 11 (10.0.26200.8655)
+Intel Core Ultra 9 185H, 1 CPU, 22 logical and 16 physical cores
+.NET SDK 8.0.422
+  [Host]     : .NET 8.0.28 (8.0.2826.26413), X64 RyuJIT AVX2
+  Job-SHDJFF : .NET 8.0.28 (8.0.2826.26413), X64 RyuJIT AVX2
+  ShortRun   : .NET 8.0.28 (8.0.2826.26413), X64 RyuJIT AVX2
+</code></pre>
+<pre><code></code></pre>
+
+<table>
+<thead><tr><th>Method    </th><th>Job </th><th>IterationCount</th><th>LaunchCount</th><th>WarmupCount</th><th>Mean  </th><th>Error </th><th>StdDev</th><th>Gen0</th><th>Gen1</th><th>Gen2</th><th>Allocated</th>
+</tr>
+</thead><tbody><tr><td>CompareBom_100</td><td>Job-SHDJFF</td><td>5</td><td>Default</td><td>2</td><td>9.846 &mu;s</td><td>1.190 &mu;s</td><td>0.3090 &mu;s</td><td>1.4038</td><td>0.0458</td><td>-</td><td>17.27 KB</td>
+</tr><tr><td>CompareBom_1000</td><td>Job-SHDJFF</td><td>5</td><td>Default</td><td>2</td><td>118.588 &mu;s</td><td>16.826 &mu;s</td><td>4.3697 &mu;s</td><td>13.6719</td><td>3.2959</td><td>-</td><td>168.54 KB</td>
+</tr><tr><td>CompareBom_10000</td><td>Job-SHDJFF</td><td>5</td><td>Default</td><td>2</td><td>1,664.984 &mu;s</td><td>128.818 &mu;s</td><td>33.4536 &mu;s</td><td>199.2188</td><td>199.2188</td><td>199.2188</td><td>1610.01 KB</td>
+</tr><tr><td>CompareBom_100</td><td>ShortRun</td><td>3</td><td>1</td><td>3</td><td>11.056 &mu;s</td><td>4.710 &mu;s</td><td>0.2582 &mu;s</td><td>1.4038</td><td>0.0458</td><td>-</td><td>17.27 KB</td>
+</tr><tr><td>CompareBom_1000</td><td>ShortRun</td><td>3</td><td>1</td><td>3</td><td>122.709 &mu;s</td><td>91.953 &mu;s</td><td>5.0403 &mu;s</td><td>13.6719</td><td>3.2959</td><td>-</td><td>168.54 KB</td>
+</tr><tr><td>CompareBom_10000</td><td>ShortRun</td><td>3</td><td>1</td><td>3</td><td>1,921.156 &mu;s</td><td>3,504.598 &mu;s</td><td>192.0989 &mu;s</td><td>199.2188</td><td>199.2188</td><td>199.2188</td><td>1610.01 KB</td>
+</tr></tbody></table>
+</body>
+</html>

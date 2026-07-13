@@ -1,0 +1,51 @@
+# Excel-DNA build outputs
+*.xll
+*.dna.config
+packed/
+
+# Local SQLite databases
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# User config (don't commit local overrides)
+user.config
+*.user
+
+# Visual Studio
+.vs/
+bin/
+obj/
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Rider
+.idea/
+
+# VS Code
+.vscode/
+
+# Claude Code project config (review artifacts, known issues, settings)
+.claude/
+
+# CodeGraph index
+.codegraph/
+
+# Historical archive (original documents superseded by docs/)
+docs/archive/
+
+# NuGet
+packages/
+*.nupkg
+
+# Test results
+TestResults/
+*.trx
+
+# Diagnostic logs
+*.log
+
+# OS files
+Thumbs.db
+Desktop.ini
