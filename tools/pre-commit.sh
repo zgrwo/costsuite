@@ -28,12 +28,17 @@ echo "✅ 编译通过"
 # ═══ 2. 测试质量守卫 ═══
 echo ""
 echo "[2/3] 测试质量检查..."
-pwsh -NoProfile -File "$REPO_ROOT/tools/test-quality-guard.ps1" -Mode Quick
-GUARD_EXIT=$?
-if [ $GUARD_EXIT -eq 2 ]; then
-    echo "❌ 测试质量问题（弱断言等），建议修复后再提交。"
-    echo "   使用 --no-verify 跳过（不推荐）。"
-    exit 1
+if command -v pwsh &> /dev/null; then
+    pwsh -NoProfile -File "$REPO_ROOT/tools/test-quality-guard.ps1" -Mode Quick
+    GUARD_EXIT=$?
+    if [ $GUARD_EXIT -eq 2 ]; then
+        echo "❌ 测试质量问题（弱断言等），建议修复后再提交。"
+        echo "   使用 --no-verify 跳过（不推荐）。"
+        exit 1
+    fi
+else
+    # pwsh 不可用时使用 bash 版质量守卫
+    bash "$REPO_ROOT/tools/test-quality-guard.sh"
 fi
 echo "✅ 测试质量通过"
 
