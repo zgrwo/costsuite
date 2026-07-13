@@ -1,4 +1,5 @@
 using System;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using BomAddIn.Bridge;
@@ -29,6 +30,8 @@ namespace BomAddIn
     public class BomAddInStartup : IExcelAddIn
     {
         private static IServiceProvider? _serviceProvider;
+        // C-24 fix: 后台任务取消令牌，AutoClose 时 Cancel 防止 dispose 后访问 ServiceProvider
+        private static CancellationTokenSource? _backgroundTasksCts;
 
         /// <summary>
         /// 全局 DI 容器（供 UDF 等无 DI 注入的上下文使用）。
@@ -53,6 +56,10 @@ namespace BomAddIn
                 // 2a. 初始化 UDF Container（服务定位器）
                 Container.Initialize(_serviceProvider);
 
+                // 2b. C-21 fix: 在主线程强制求值 VersionAdapter，确保 COM 调用不延迟到后台线程
+                var versionAdapter = _serviceProvider.GetRequiredService<IVersionAdapter>();
+                var _ = versionAdapter.IsDynamicArraySupported;
+
                 // 3. 启动探针自检（快速失败）
                 StartupValidator.Validate(_serviceProvider);
 
@@ -63,16 +70,20 @@ namespace BomAddIn
                 // 5. 种子管理员账户（幂等，必须同步完成——后续登录依赖此账户）
                 SeedDefaultData();
 
+                // C-24 fix: 创建取消令牌，AutoClose 时通知后台任务停止
+                _backgroundTasksCts = new CancellationTokenSource();
+                var ct = _backgroundTasksCts.Token;
+
                 // 5a. 创建每日快照（后台执行，不阻塞 Excel UI）
-                Task.Run(() => CreateDailySnapshotIfNeeded());
+                Task.Run(() => CreateDailySnapshotIfNeeded(ct), ct);
 
                 // 6. 预热 DuckDB（后台加载，不阻塞启动）
                 // R2-09: 在 Task.Run 内部创建独立 scope，避免外部 scope 提前释放
-                Task.Run(() => WarmUpDuckDb());
+                Task.Run(() => WarmUpDuckDb(ct), ct);
 
                 // 6a. 种子数据（首次启动时后台生成，不阻塞 Excel UI）
                 // R2-13: 提升至开发环境默认 5000 物料 + 25000 BOM 节点
-                Task.Run(() => GenerateSeedDataIfNeeded());
+                Task.Run(() => GenerateSeedDataIfNeeded(ct), ct);
 
                 // 7. 日志环境信息
                 var envManager = _serviceProvider!.GetRequiredService<BomAddIn.Infrastructure.Config.EnvironmentManager>();
@@ -97,6 +108,11 @@ namespace BomAddIn
 
         public void AutoClose()
         {
+            // C-24 fix: 先取消后台任务，等待短暂完成后再 dispose ServiceProvider
+            _backgroundTasksCts?.Cancel();
+            _backgroundTasksCts?.Dispose();
+            _backgroundTasksCts = null;
+
             // 关闭 WPF Dashboard
             DashboardBootstrapper.Close();
 
@@ -116,10 +132,11 @@ namespace BomAddIn
         /// DuckDB 预热 — 在 Task.Run 内创建独立 scope 和连接，
         /// 避免外部 scope 提前释放导致连接失效 (R2-09)。
         /// </summary>
-        private static void WarmUpDuckDb()
+        private static void WarmUpDuckDb(CancellationToken ct)
         {
             try
             {
+                if (ct.IsCancellationRequested) return;
                 using var scope = ServiceProvider.CreateScope();
                 var connectionFactory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
                 var analysisProvider = scope.ServiceProvider.GetRequiredService<IBomAnalysisProvider>();
@@ -136,10 +153,11 @@ namespace BomAddIn
             }
         }
 
-        private static void CreateDailySnapshotIfNeeded()
+        private static void CreateDailySnapshotIfNeeded(CancellationToken ct)
         {
             try
             {
+                if (ct.IsCancellationRequested) return;
                 using var scope = ServiceProvider.CreateScope();
                 var snapshotService = scope.ServiceProvider.GetRequiredService<BomAddIn.Core.Services.ISnapshotService>();
                 snapshotService.CreateSnapshot("Daily", $"Auto-snapshot at startup: {DateTime.Today:yyyy-MM-dd}");
@@ -150,10 +168,11 @@ namespace BomAddIn
             }
         }
 
-        private static void GenerateSeedDataIfNeeded()
+        private static void GenerateSeedDataIfNeeded(CancellationToken ct)
         {
             try
             {
+                if (ct.IsCancellationRequested) return;
                 using var scope = ServiceProvider.CreateScope();
                 var generator = scope.ServiceProvider.GetRequiredService<BomAddIn.Core.Services.ISeedDataGenerator>();
 

@@ -164,6 +164,63 @@ namespace BomAddIn.Core.Services
                 // 循环检测边收集
                 var edges = new List<(long Parent, long Child)>();
 
+                // C-10 fix: 第一阶段 — 验证所有行并收集边（不实际插入），避免插入后回滚浪费
+                for (int i = 0; i < table.Rows.Count; i++)
+                {
+                    var row = table.Rows[i];
+                    var rowNum = i + 2;
+
+                    try
+                    {
+                        var parentCode = GetCell(row, mapping, "ParentItemCode");
+                        var childCode = GetCell(row, mapping, "ItemCode");
+
+                        Material? parent = null;
+                        if (!materialLookup.TryGetValue(parentCode, out var p))
+                            parent = _materialRepo.GetByCode(orgId, parentCode, conn, tx);
+                        else
+                            parent = p;
+
+                        Material? child = null;
+                        if (!materialLookup.TryGetValue(childCode, out var c))
+                            child = _materialRepo.GetByCode(orgId, childCode, conn, tx);
+                        else
+                            child = c;
+
+                        if (parent == null) { result.Errors.Add($"第 {rowNum} 行: 父物料 '{parentCode}' 不存在。"); continue; }
+                        if (child == null) { result.Errors.Add($"第 {rowNum} 行: 子物料 '{childCode}' 不存在。"); continue; }
+
+                        if (!materialLookup.ContainsKey(parentCode))
+                            materialLookup[parentCode] = parent;
+                        if (!materialLookup.ContainsKey(childCode))
+                            materialLookup[childCode] = child;
+
+                        edges.Add((parent.Id, child.Id));
+                    }
+                    catch (Exception ex)
+                    {
+                        result.Errors.Add($"第 {rowNum} 行: {ex.Message}");
+                    }
+                }
+
+                // 第二阶段：全量循环检测
+                if (edges.Count > 0)
+                {
+                    var cycles = DetectAllCycles(edges);
+                    foreach (var cycle in cycles)
+                    {
+                        result.Errors.Add($"检测到循环依赖: {string.Join(" → ", cycle)}");
+                    }
+                }
+
+                if (result.Errors.Count > 0)
+                {
+                    tx.Rollback();
+                    result.Success = false;
+                    return result;
+                }
+
+                // 第三阶段：确认无循环后批量插入
                 for (int i = 0; i < table.Rows.Count; i++)
                 {
                     var row = table.Rows[i];
@@ -181,14 +238,12 @@ namespace BomAddIn.Core.Services
                             continue;
                         }
 
-                        // M-7: 拒绝零或负数用量
                         if (qty <= 0)
                         {
                             result.Errors.Add($"第 {rowNum} 行: 数量 {qty} 无效，必须大于 0。");
                             continue;
                         }
 
-                        // R2-15: 外键校验使用事务内连接 + 内存查找，确保读取事务中刚插入的物料
                         Material? parent = null;
                         if (!materialLookup.TryGetValue(parentCode, out var p))
                             parent = _materialRepo.GetByCode(orgId, parentCode, conn, tx);
@@ -204,14 +259,10 @@ namespace BomAddIn.Core.Services
                         if (parent == null) { result.Errors.Add($"第 {rowNum} 行: 父物料 '{parentCode}' 不存在。"); continue; }
                         if (child == null) { result.Errors.Add($"第 {rowNum} 行: 子物料 '{childCode}' 不存在。"); continue; }
 
-                        // 更新内存查找缓存（如果是新发现的物料）
                         if (!materialLookup.ContainsKey(parentCode))
                             materialLookup[parentCode] = parent;
                         if (!materialLookup.ContainsKey(childCode))
                             materialLookup[childCode] = child;
-
-                        // R2-17: 收集所有边，在插入前进行全量循环检测
-                        edges.Add((parent.Id, child.Id));
 
                         var node = new BomNode
                         {
@@ -237,16 +288,7 @@ namespace BomAddIn.Core.Services
                     }
                 }
 
-                // R2-17: 全量循环检测 — 报告所有环，而非仅第一个
-                if (edges.Count > 0)
-                {
-                    var cycles = DetectAllCycles(edges);
-                    foreach (var cycle in cycles)
-                    {
-                        result.Errors.Add($"检测到循环依赖: {string.Join(" → ", cycle)}");
-                    }
-                }
-
+                // 事务提交/回滚决策（Phase 3 完成后）
                 if (result.Errors.Count == 0)
                     tx.Commit();
                 else
@@ -316,6 +358,10 @@ namespace BomAddIn.Core.Services
             return allCycles;
         }
 
+        // C-11 fix: 迭代 DFS 替代递归，避免深层 BOM 的栈溢出（默认上限 100 层）
+        // 使用显式 Stack 模拟调用栈，每帧记录 (node, childEnumerator, isBacktracking)
+        private const int MaxCycleDetectionDepth = 100;
+
         private static void DfsAll(
             long node,
             Dictionary<long, List<long>> graph,
@@ -324,31 +370,71 @@ namespace BomAddIn.Core.Services
             List<long> path,
             List<List<long>> allCycles)
         {
-            if (inStack.Contains(node))
-            {
-                var startIdx = path.IndexOf(node);
-                var cycle = new List<long>(path.GetRange(startIdx, path.Count - startIdx));
-                cycle.Add(node);
-                allCycles.Add(cycle);
-                return;
-            }
-            if (visited.Contains(node))
-                return;
+            // 迭代 DFS 栈：每帧记录 (node, childIndex, phase: 0=enter, 1=process children)
+            var stack = new Stack<(long Node, int ChildIndex, int Phase)>();
+            stack.Push((node, 0, 0));
 
-            visited.Add(node);
-            inStack.Add(node);
-            path.Add(node);
-
-            if (graph.TryGetValue(node, out var children))
+            while (stack.Count > 0)
             {
-                foreach (var child in children)
+                // 深度保护：防止极端线性 BOM 路径耗尽内存
+                if (stack.Count > MaxCycleDetectionDepth)
                 {
-                    DfsAll(child, graph, visited, inStack, path, allCycles);
+                    Infrastructure.Logging.AppLogger.Warn(
+                        $"循环检测达到最大深度 {MaxCycleDetectionDepth}，可能存在超深 BOM 结构。",
+                        typeof(BomExcelImporter));
+                    // E-2 fix: 清理所有 DFS 状态（inStack, path, 以及未完成处理的 visited 节点）
+                    // 不清除会导致后续根节点遍历时使用脏 path 产生假阳性环报告
+                    while (stack.Count > 0)
+                    {
+                        var (n, _, _) = stack.Pop();
+                        inStack.Remove(n);
+                        visited.Remove(n); // 未完成遍历的节点不应标记为 visited
+                    }
+                    inStack.Clear();
+                    path.Clear();
+                    return;
+                }
+
+                var (current, childIdx, phase) = stack.Pop();
+
+                if (phase == 0)
+                {
+                    // 进入节点阶段
+                    if (inStack.Contains(current))
+                    {
+                        // 发现环路 — 收集路径中从 current 开始的节点
+                        var startIdx = path.IndexOf(current);
+                        var cycle = new List<long>(path.GetRange(startIdx, path.Count - startIdx));
+                        cycle.Add(current);
+                        allCycles.Add(cycle);
+                        continue;
+                    }
+                    if (visited.Contains(current))
+                        continue;
+
+                    visited.Add(current);
+                    inStack.Add(current);
+                    path.Add(current);
+
+                    // 推入回溯帧
+                    stack.Push((current, 0, 1));
+
+                    // 推入子节点（逆序推入以保持与递归版本相同的遍历顺序）
+                    if (graph.TryGetValue(current, out var children))
+                    {
+                        for (int i = children.Count - 1; i >= 0; i--)
+                        {
+                            stack.Push((children[i], 0, 0));
+                        }
+                    }
+                }
+                else
+                {
+                    // 回溯阶段
+                    path.RemoveAt(path.Count - 1);
+                    inStack.Remove(current);
                 }
             }
-
-            path.RemoveAt(path.Count - 1);
-            inStack.Remove(node);
         }
     }
 }

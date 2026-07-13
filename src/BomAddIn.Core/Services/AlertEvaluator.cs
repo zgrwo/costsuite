@@ -26,10 +26,24 @@ namespace BomAddIn.Core.Services
             _priceWarningThreshold = ParseConfig(config, "Alert:PriceWarningThreshold", DefaultPriceWarningThreshold);
             _priceCriticalThreshold = ParseConfig(config, "Alert:PriceCriticalThreshold", DefaultPriceCriticalThreshold);
             _bomQuantityChangeThreshold = ParseConfig(config, "Alert:BomQuantityChangeThreshold", DefaultBomQuantityChangeThreshold);
+
+            // C-13 fix: 验证阈值单调性，防止配置错误导致某些规则不可达
+            // if-else 链中 Critical 优先匹配，必须满足 Critical > Severe > Warning
+            if (!(_priceCriticalThreshold > _priceSevereThreshold
+                  && _priceSevereThreshold > _priceWarningThreshold
+                  && _priceWarningThreshold > 0))
+            {
+                throw new InvalidOperationException(
+                    $"AlertEvaluator 阈值配置无效: Critical({_priceCriticalThreshold}) > Severe({_priceSevereThreshold}) > Warning({_priceWarningThreshold}) > 0 必须成立。" +
+                    " 当前 if-else 链语义为 '仅报告最高严重级别'，阈值逆序将导致规则不可达。");
+            }
         }
 
         public List<Alert> Evaluate(IEnumerable<VarianceResult> variances)
         {
+            if (variances == null)
+                throw new ArgumentNullException(nameof(variances));
+
             var alerts = new List<Alert>();
 
             foreach (var v in variances)

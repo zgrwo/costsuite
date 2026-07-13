@@ -294,16 +294,20 @@
 =SYNCSTATUS()
 ```
 
-**返回当前数据同步状态。无参数，易变函数。**
+**返回最近一次数据同步时间。无参数，易变函数。**
 
 **返回值**: `string`
 
 | 值 | 含义 |
 |----|------|
-| `"Online / Synced"` | 在线，数据已同步 |
-| `"Online / Syncing..."` | 在线，同步进行中 |
-| `"Offline / ReadOnly (更新于: 2026-07-12 14:30)"` | 离线只读模式 |
-| `"Offline / CacheExpired"` | 离线且缓存已过期（>24h） |
+| `"Never synced"` | 从未执行过数据同步 |
+| `"Synced Xm ago"` | 最近同步在 X 分钟前（<1 小时） |
+| `"Synced X.Xh ago"` | 最近同步在 X.X 小时前（<24 小时） |
+| `"Synced yyyy-MM-dd HH:mm"` | 最近同步的具体时间（≥24 小时前） |
+| `#VALUE!` | 查询失败（数据库不可用等） |
+
+> **注意**: V1.1 版本 SYNCSTATUS 仅返回同步时间戳，不含在线/离线状态判断。
+> Dashboard 中的在线/离线指示由 `NetworkMonitor` 独立提供。
 
 ---
 

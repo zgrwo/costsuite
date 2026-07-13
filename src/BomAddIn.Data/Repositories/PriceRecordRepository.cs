@@ -38,7 +38,9 @@ namespace BomAddIn.Data.Repositories
                       GROUP BY MaterialId
                   ) latest ON p.MaterialId = latest.MaterialId AND p.EffectiveDate = latest.MaxDate",
                 new { Ids = materialIds });
-            return results.ToDictionary(r => r.MaterialId, r => r);
+            // M-8 fix: 同一物料同日期多条记录（多供应商）时避免重复键异常，取第一条
+            return results.GroupBy(r => r.MaterialId)
+                          .ToDictionary(g => g.Key, g => g.First());
         }
 
         public PriceRecord? GetByMaterialIdAndDate(long materialId, DateTime asOfDate)
@@ -64,7 +66,9 @@ namespace BomAddIn.Data.Repositories
                       GROUP BY MaterialId
                   ) latest ON p.MaterialId = latest.MaterialId AND p.EffectiveDate = latest.MaxDate",
                 new { Ids = materialIds, AsOfDate = asOfDate.ToString("yyyy-MM-dd") });
-            return results.ToDictionary(r => r.MaterialId, r => r);
+            // M-8 fix: 同一物料同日期多条记录时避免重复键异常，取第一条
+            return results.GroupBy(r => r.MaterialId)
+                          .ToDictionary(g => g.Key, g => g.First());
         }
 
         public IEnumerable<PriceRecord> GetByMaterialVersion(long materialId, long dataVersion)

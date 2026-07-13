@@ -140,7 +140,20 @@ namespace BomAddIn.Infrastructure.Security
             }
             catch (Exception ex)
             {
-                AppLogger.Warn($"无法加载已有 DEK，将生成新密钥: {ex.Message}", typeof(AesEncryptionProvider));
+                // C-14 fix: DEK 解密失败时备份旧文件而非直接覆盖，防止历史加密数据永久丢失
+                // DPAPI 可能因密码重置、域变更、配置文件迁移等原因解密失败
+                AppLogger.Error($"DEK 解密失败，备份旧文件后生成新密钥: {ex.Message}",
+                    ex, typeof(AesEncryptionProvider));
+                try
+                {
+                    var backupPath = _keyFilePath + $".backup.{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    File.Copy(_keyFilePath, backupPath, overwrite: true);
+                    AppLogger.Info($"旧 DEK 文件已备份至: {backupPath}", typeof(AesEncryptionProvider));
+                }
+                catch (Exception backupEx)
+                {
+                    AppLogger.Error($"DEK 备份失败: {backupEx.Message}", backupEx, typeof(AesEncryptionProvider));
+                }
             }
 
             // 生成新 AES-256 密钥
@@ -158,7 +171,8 @@ namespace BomAddIn.Infrastructure.Security
             }
             catch (Exception ex)
             {
-                AppLogger.Warn($"DEK 持久化失败（密钥仅存在于内存中）: {ex.Message}", typeof(AesEncryptionProvider));
+                AppLogger.Error($"DEK 持久化失败（密钥仅存在于内存中，重启后数据将不可读）: {ex.Message}",
+                    ex, typeof(AesEncryptionProvider));
             }
 
             return newDek;

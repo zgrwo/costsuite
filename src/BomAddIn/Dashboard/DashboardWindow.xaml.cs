@@ -31,6 +31,9 @@ namespace BomAddIn.Dashboard
 
             // H-24: 窗口加载完成后异步初始化数据
             Loaded += async (_, _) => await vm.InitializeAsync();
+
+            // 窗口关闭时释放 ClickTwiceFix 的 WndProc hook
+            Closed += (_, _) => _clickTwiceFix.Dispose();
         }
     }
 }

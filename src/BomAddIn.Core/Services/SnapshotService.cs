@@ -4,6 +4,7 @@ using System.Data;
 using System.Text;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
+using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Models.Enums;
 using Dapper;
@@ -49,6 +50,23 @@ namespace BomAddIn.Core.Services
                 var inventories = conn.Query<InventoryRecord>(
                     "SELECT * FROM Inventories ORDER BY SnapshotDate DESC LIMIT @Limit", new { Limit = maxRowsPerTable }, tx).AsList();
 
+                // C-8 fix: 检测截断并记录警告，在快照 description 中标记不完整
+                var truncations = new List<string>();
+                if (materials.Count >= maxRowsPerTable) truncations.Add("Materials");
+                if (bomStructures.Count >= maxRowsPerTable) truncations.Add("BomStructures");
+                if (bomVersions.Count >= maxRowsPerTable) truncations.Add("BomVersions");
+                if (prices.Count >= maxRowsPerTable) truncations.Add("Prices");
+                if (inventories.Count >= maxRowsPerTable) truncations.Add("Inventories");
+
+                var isTruncated = truncations.Count > 0;
+                if (isTruncated)
+                {
+                    AppLogger.Warn(
+                        $"快照数据被截断（上限 {maxRowsPerTable} 行/表）：{string.Join(", ", truncations)}。" +
+                        "后续 Compare() 可能产生误导结果。建议使用数据库级备份。",
+                        typeof(SnapshotService));
+                }
+
                 // 构建 JSON 快照
                 var json = BuildSnapshotJson(materials, bomStructures, bomVersions, prices, inventories);
 
@@ -57,7 +75,8 @@ namespace BomAddIn.Core.Services
                     SnapshotType = type,
                     SnapshotData = json,
                     CreatedAt = DateTime.UtcNow,
-                    Description = description ?? $"{type} snapshot at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}"
+                    Description = (description ?? $"{type} snapshot at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}")
+                        + (isTruncated ? $" [TRUNCATED: {string.Join(", ", truncations)}]" : "")
                 };
 
                 _snapshotRepo.Add(snapshot);
@@ -180,10 +199,11 @@ namespace BomAddIn.Core.Services
             sb.Append("  }");
         }
 
+        // D-1 fix: 委托 AuditService.EscapeJsonString 消除重复实现
         private static string Escape(string? s)
         {
             if (s == null) return "";
-            return s.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            return AuditService.EscapeJsonString(s);
         }
 
         /// <summary>

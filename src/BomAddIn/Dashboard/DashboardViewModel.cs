@@ -35,7 +35,7 @@ namespace BomAddIn.Dashboard
 
             // 命令
             RefreshCommand = new RelayCommand(_ => RefreshAll());
-            ExpandBomCommand = new RelayCommand(_ => ExpandBom());
+            ExpandBomCommand = new RelayCommand(async _ => await ExpandBomAsync());
             SyncNowCommand = new RelayCommand(async _ => await SyncNowAsync());
 
             // H-24: 延迟加载 — 构造函数不再做同步 DB 查询，在 Window.Loaded 中异步触发
@@ -150,7 +150,8 @@ namespace BomAddIn.Dashboard
             }
         }
 
-        public void ExpandBom()
+        // C-22 fix: ExpandBom 异步化，避免 UI 线程同步阻塞大 BOM 数据库查询
+        public async Task ExpandBomAsync()
         {
             if (string.IsNullOrWhiteSpace(BomSearchCode))
             {
@@ -162,26 +163,35 @@ namespace BomAddIn.Dashboard
 
             try
             {
-                using var scope = _services.CreateScope();
-                var sp = scope.ServiceProvider;
-                var bomService = sp.GetRequiredService<IBomService>();
-                var nodes = bomService.Expand(BomSearchCode);
+                var code = BomSearchCode; // 捕获当前值
+                var treeNodes = await Task.Run(() =>
+                {
+                    using var scope = _services.CreateScope();
+                    var sp = scope.ServiceProvider;
+                    var bomService = sp.GetRequiredService<IBomService>();
+                    var nodes = bomService.Expand(code);
 
-                var treeNodes = nodes
-                    .Where(n => n.Level == 0)
-                    .Select(n => BuildTreeNode(n, nodes))  // C-1: Dictionary 在首次调用时构建一次
-                    .ToList();
+                    return nodes
+                        .Where(n => n.Level == 0)
+                        .Select(n => BuildTreeNode(n, nodes))
+                        .ToList();
+                });
 
                 BomTreeNodes.Clear();
                 foreach (var tn in treeNodes)
                     BomTreeNodes.Add(tn);
 
-                StatusText = $"BOM 展开完成: {nodes.Count} 个节点";
+                StatusText = $"BOM 展开完成: {treeNodes.Sum(t => CountNodes(t))} 个节点";
             }
             catch (Exception ex)
             {
                 StatusText = $"BOM 展开失败: {ex.Message}";
             }
+        }
+
+        private static int CountNodes(BomTreeNode node)
+        {
+            return 1 + (node.Children?.Sum(c => CountNodes(c)) ?? 0);
         }
 
         private async Task SyncNowAsync()
@@ -246,6 +256,14 @@ namespace BomAddIn.Dashboard
         public event PropertyChangedEventHandler? PropertyChanged;
         protected void OnPropertyChanged([CallerMemberName] string? name = null)
         {
+            // C-20 fix: 确保属性变更通知始终在 UI 线程触发
+            // Task.Run 中的属性更新会跨线程触发 PropertyChanged，导致 WPF 绑定异常
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher != null && !dispatcher.CheckAccess())
+            {
+                dispatcher.Invoke(() => OnPropertyChanged(name));
+                return;
+            }
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 

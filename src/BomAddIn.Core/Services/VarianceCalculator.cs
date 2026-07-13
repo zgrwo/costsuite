@@ -18,101 +18,94 @@ namespace BomAddIn.Core.Services
             var results = new List<VarianceResult>();
 
             // 使用 (ItemCode, ParentMaterialId, Level) 复合键处理同一物料在多层级出现的情况
-            // 例: 螺丝 MAT-000042 在 Level=2 和 Level=3 各出现一次，是两个独立的 BOM 节点
-            // C-3 fix: 同键多节点（同物料同层级多次出现）追加序号避免 ToDictionary 崩溃
             string NodeKey(BomExpandedNode n) => $"{n.ItemCode}|{n.ParentMaterialId}|{n.Level}";
 
-            var mapA = ToDictionarySafe(versionA, NodeKey);
-            var mapB = ToDictionarySafe(versionB, NodeKey);
+            // C-3 fix: 分组比较替代全局字典，解决跨版本键匹配误差
+            // 全局 ToDictionary 在 A 有 2 个同键节点 / B 有 1 个时，A 的 #2 后缀节点在 B 中无匹配→假 Removed
+            // 分组比较：每个 (ItemCode, ParentMaterialId, Level) 组内按确定性排序后逐位比较
+            // G-2 fix: 排序以 Description 为主键（比 Quantity 更稳定），MaterialId 为最终平局裁决
+            var groupsA = versionA.GroupBy(NodeKey).ToDictionary(
+                g => g.Key, g => g.OrderBy(n => n.Description).ThenBy(n => n.Quantity).ThenBy(n => n.MaterialId).ToList());
+            var groupsB = versionB.GroupBy(NodeKey).ToDictionary(
+                g => g.Key, g => g.OrderBy(n => n.Description).ThenBy(n => n.Quantity).ThenBy(n => n.MaterialId).ToList());
 
-            var allKeys = new HashSet<string>(mapA.Keys);
-            allKeys.UnionWith(mapB.Keys);
+            var allKeys = new HashSet<string>(groupsA.Keys);
+            allKeys.UnionWith(groupsB.Keys);
 
             foreach (var key in allKeys)
             {
-                var inA = mapA.TryGetValue(key, out var nodeA);
-                var inB = mapB.TryGetValue(key, out var nodeB);
+                var listA = groupsA.TryGetValue(key, out var la) ? la : new List<BomExpandedNode>();
+                var listB = groupsB.TryGetValue(key, out var lb) ? lb : new List<BomExpandedNode>();
+                var maxCount = Math.Max(listA.Count, listB.Count);
 
-                if (inA && !inB)
+                for (int i = 0; i < maxCount; i++)
                 {
-                    results.Add(new VarianceResult
+                    if (i >= listA.Count)
                     {
-                        NodeCode = nodeA!.ItemCode,
-                        NodeDescription = $"{nodeA.Description} (L{nodeA.Level})",
-                        ChangeType = VarianceChangeType.Removed,
-                        Dimension = VarianceDimension.BomStructure,
-                        OldValue = nodeA.Quantity.ToString("F3"),
-                        NewValue = null
-                    });
-                }
-                else if (!inA && inB)
-                {
-                    results.Add(new VarianceResult
+                        // A 中无此位置的节点 → Added
+                        var nb = listB[i];
+                        results.Add(new VarianceResult
+                        {
+                            NodeCode = nb.ItemCode,
+                            NodeDescription = $"{nb.Description} (L{nb.Level})",
+                            ChangeType = VarianceChangeType.Added,
+                            Dimension = VarianceDimension.BomStructure,
+                            OldValue = null,
+                            NewValue = nb.Quantity.ToString("F3")
+                        });
+                    }
+                    else if (i >= listB.Count)
                     {
-                        NodeCode = nodeB!.ItemCode,
-                        NodeDescription = $"{nodeB.Description} (L{nodeB.Level})",
-                        ChangeType = VarianceChangeType.Added,
-                        Dimension = VarianceDimension.BomStructure,
-                        OldValue = null,
-                        NewValue = nodeB.Quantity.ToString("F3")
-                    });
-                }
-                else if (Math.Abs(nodeA!.Quantity - nodeB!.Quantity) > 0.0001 * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity))
-                         || nodeA.Level != nodeB.Level)
-                {
-                    var oldQty = nodeA.Quantity;
-                    var newQty = nodeB.Quantity;
-                    var levelChanged = nodeA.Level != nodeB.Level;
-                    var qtyChanged = Math.Abs(nodeA.Quantity - nodeB.Quantity) > 0.0001 * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity));
-                    var changePct = oldQty > 0 ? (newQty - oldQty) / oldQty * 100 : (newQty != 0 ? double.PositiveInfinity : 0);
-
-                    // M-11: 区分层级变化 vs 数量变化的消息
-                    string description;
-                    oldQty = nodeA.Quantity;
-                    newQty = nodeB.Quantity;
-                    if (levelChanged && !qtyChanged)
-                        description = $"{nodeA.Description} (层级 L{nodeA.Level}→L{nodeB.Level})";
-                    else if (levelChanged && qtyChanged)
-                        description = $"{nodeA.Description} (L{nodeA.Level}→L{nodeB.Level}, 数量变化 {changePct:F1}%)";
+                        // B 中无此位置的节点 → Removed
+                        var na = listA[i];
+                        results.Add(new VarianceResult
+                        {
+                            NodeCode = na.ItemCode,
+                            NodeDescription = $"{na.Description} (L{na.Level})",
+                            ChangeType = VarianceChangeType.Removed,
+                            Dimension = VarianceDimension.BomStructure,
+                            OldValue = na.Quantity.ToString("F3"),
+                            NewValue = null
+                        });
+                    }
                     else
-                        description = $"{nodeA.Description} (L{nodeA.Level})";
-
-                    results.Add(new VarianceResult
                     {
-                        NodeCode = nodeA.ItemCode,
-                        NodeDescription = description,
-                        ChangeType = VarianceChangeType.Modified,
-                        Dimension = VarianceDimension.BomStructure,
-                        OldValue = oldQty.ToString("F3"),
-                        NewValue = newQty.ToString("F3"),
-                        ChangePercent = double.IsInfinity(changePct) ? 100.0 : (double)Math.Round(changePct, 2)
-                    });
+                        var nodeA = listA[i];
+                        var nodeB = listB[i];
+
+                        if (Math.Abs(nodeA.Quantity - nodeB.Quantity) > 0.0001 * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity))
+                            || nodeA.Level != nodeB.Level)
+                        {
+                            var oldQty = nodeA.Quantity;
+                            var newQty = nodeB.Quantity;
+                            var levelChanged = nodeA.Level != nodeB.Level;
+                            var qtyChanged = Math.Abs(nodeA.Quantity - nodeB.Quantity) > 0.0001 * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity));
+                            var changePct = oldQty > 0 ? (newQty - oldQty) / oldQty * 100 : (newQty != 0 ? double.PositiveInfinity : 0);
+
+                            string description;
+                            if (levelChanged && !qtyChanged)
+                                description = $"{nodeA.Description} (层级 L{nodeA.Level}→L{nodeB.Level})";
+                            else if (levelChanged && qtyChanged)
+                                description = $"{nodeA.Description} (L{nodeA.Level}→L{nodeB.Level}, 数量变化 {changePct:F1}%)";
+                            else
+                                description = $"{nodeA.Description} (L{nodeA.Level})";
+
+                            results.Add(new VarianceResult
+                            {
+                                NodeCode = nodeA.ItemCode,
+                                NodeDescription = description,
+                                ChangeType = VarianceChangeType.Modified,
+                                Dimension = VarianceDimension.BomStructure,
+                                OldValue = oldQty.ToString("F3"),
+                                NewValue = newQty.ToString("F3"),
+                                ChangePercent = double.IsInfinity(changePct) ? 100.0 : (double)Math.Round(changePct, 2)
+                            });
+                        }
+                    }
                 }
             }
 
             return results.OrderByDescending(r => r.ChangeType).ToList();
-        }
-
-        /// <summary>
-        /// 安全的 ToDictionary——同键多节点时追加序号后缀 (#1, #2, ...) 避免崩溃。
-        /// </summary>
-        private static Dictionary<string, BomExpandedNode> ToDictionarySafe(
-            List<BomExpandedNode> nodes, Func<BomExpandedNode, string> keySelector)
-        {
-            var dict = new Dictionary<string, BomExpandedNode>();
-            foreach (var node in nodes)
-            {
-                var baseKey = keySelector(node);
-                var key = baseKey;
-                var suffix = 1;
-                while (dict.ContainsKey(key))
-                {
-                    suffix++;
-                    key = $"{baseKey}#{suffix}";
-                }
-                dict[key] = node;
-            }
-            return dict;
         }
 
         public List<VarianceResult> ComparePrices(
@@ -145,7 +138,11 @@ namespace BomAddIn.Core.Services
             if (Math.Abs(priceA - priceB) < relativeThreshold)
                 return results;
 
-            var changePct = priceA > 0 ? (priceB - priceA) / priceA * 100 : 0;
+            // C-12 fix: priceA==0 时与数量变化逻辑一致，使用 decimal.MaxValue 标记无穷大百分比
+            // 当旧价格为 0 且新价格非 0（新品定价），百分比变化为无穷大
+            var changePct = priceA > 0
+                ? (priceB - priceA) / priceA * 100
+                : (priceB != 0 ? decimal.MaxValue : 0);
 
             results.Add(new VarianceResult
             {

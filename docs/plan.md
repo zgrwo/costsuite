@@ -20,7 +20,7 @@
 
 | # | 约束 | 说明 |
 |---|------|------|
-| 1 | **离线模式仅限只读** → v1.1 放宽 | SQLite 本地主库下编辑始终可用，离线仅指 ERP 同步暂停 |
+| 1 | **离线模式（ERP 同步暂停）** — v1.1 放宽 | SQLite 本地主库下编辑始终可用，离线仅指 ERP 同步暂停 |
 | 2 | **Excel 版本基线** | 以 Excel 2016/2019 为基准设计 UDF 交互，Excel 365 动态数组作为增强体验而非依赖项 |
 | 3 | **线程隔离原则** | 所有 WPF 与 Excel COM 对象的交互必须通过统一的 `ExcelThreadDispatcher` 封送，严禁在 WPF 线程直接调用 Excel API |
 
@@ -160,7 +160,7 @@
 | **架构师/技术负责人** | 1 | 架构决策、技术探针主导、代码审查 | Excel-DNA、WPF、COM 互操作 |
 | **Excel-DNA 专员** | 1 | 桥接层开发、UDF 实现、线程安全 | C#、Excel-DNA、COM |
 | **WPF 前端开发** | 1 | 仪表盘、Ribbon、任务窗格 | WPF、MVVM、数据可视化 |
-| **后端开发** | 1-2 | BLL、差异引擎、DAL、同步服务 | C#、Dapper、SQL Server/PostgreSQL |
+| **后端开发** | 1-2 | BLL、差异引擎、DAL、同步服务 | C#、Dapper、SQLite + DuckDB |
 | **QA 工程师** | 1 | 测试策略执行、兼容性测试、UAT | xUnit、TestContainers、BenchmarkDotNet |
 | **项目经理** | 0.5（兼职） | Sprint 计划、风险跟踪、干系人沟通 | — |
 

@@ -19,9 +19,9 @@ public class VarianceCalculatorEdgeCases
     [Fact]
     public void CompareBomVersions_NullInput_ShouldThrow()
     {
-        // LINQ ToDictionary 在遇到 null 集合时抛出 ArgumentNullException
+        // LINQ 在遇到 null 集合时抛出 ArgumentNullException
         Action act = () => _calc.CompareBomVersions(null!, new List<BomExpandedNode>());
-        act.Should().Throw<Exception>();
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
@@ -84,7 +84,7 @@ public class AlertEvaluatorEdgeCases
     public void Evaluate_NullInput_ShouldThrow()
     {
         Action act = () => _evaluator.Evaluate(null!);
-        act.Should().Throw<NullReferenceException>();
+        act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]

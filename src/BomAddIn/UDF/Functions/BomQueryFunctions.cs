@@ -93,7 +93,7 @@ namespace BomAddIn.UDF.Functions
             }
             catch (Exception ex)
             {
-                AppLogger.Warn($"BOMEXPAND 错误: {ex.Message}", typeof(BomQueryFunctions));
+                AppLogger.Warn($"BOMCOST 错误: {ex.Message}", typeof(BomQueryFunctions));
                 return ExcelError.ExcelErrorValue;
             }
         }

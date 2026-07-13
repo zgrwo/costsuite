@@ -6,6 +6,7 @@ using BomAddIn.Data.Analysis;
 using BomAddIn.Data.Caching;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
+using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Models.Enums;
 using Dapper;
@@ -86,8 +87,8 @@ namespace BomAddIn.Core.Services
             try
             {
                 _bomNodeRepository.Add(node, conn, tx);
-                _auditService.Log("CREATE", "BomStructures", node.Id,
-                    null, AuditService.ToJson(node), userId);
+
+                TryLogAudit("CREATE", node.Id, null, AuditService.ToJson(node), userId);
 
                 tx.Commit();
                 _cache.RemoveByPrefix("bom_expand:");
@@ -126,7 +127,7 @@ namespace BomAddIn.Core.Services
                     CreatedAt = DateTime.UtcNow
                 });
 
-                _auditService.Log("UPDATE", "BomStructures", node.Id,
+                TryLogAudit("UPDATE", node.Id,
                     oldNode != null ? AuditService.ToJson(oldNode) : null,
                     AuditService.ToJson(node), userId);
 
@@ -153,7 +154,7 @@ namespace BomAddIn.Core.Services
             {
                 var node = _bomNodeRepository.GetById(id);
                 _bomNodeRepository.Delete(id, conn, tx);
-                _auditService.Log("DELETE", "BomStructures", id,
+                TryLogAudit("DELETE", id,
                     node != null ? AuditService.ToJson(node) : null, null, userId);
 
                 tx.Commit();
@@ -213,7 +214,13 @@ namespace BomAddIn.Core.Services
             }
 
             // 自底向上成本汇总（O(n)）
-            var costs = new Dictionary<long, double>();
+            // C-1 fix: 使用节点引用作为字典键（而非 MaterialId），避免同物料多出现时成本覆盖
+            // 同一物料在 BOM 中多处出现（不同父节点），各为独立节点，拥有独立成本子树
+            //
+            // ⚠️ G-1 note: Dictionary<BomExpandedNode,double> 依赖引用相等（BomExpandedNode 未重写 Equals）。
+            // costs[node] 和 costs[child] 使用来自同一 Expand() 返回列表的同一对象实例 → 安全。
+            // 如未来 Expand() 返回新实例（克隆/投影/反序列化），需改用复合键或为 BomExpandedNode 添加 identity 列。
+            var costs = new Dictionary<BomExpandedNode, double>();
             foreach (var node in nodes.OrderByDescending(n => n.Level))
             {
                 double unitPrice = priceMap.TryGetValue(node.MaterialId, out var p) ? p : 0.0;
@@ -224,24 +231,42 @@ namespace BomAddIn.Core.Services
                 {
                     foreach (var child in children)
                     {
-                        if (costs.TryGetValue(child.MaterialId, out var cc))
+                        if (costs.TryGetValue(child, out var cc))
                             childrenCost += cc;
                     }
                 }
 
-                costs[node.MaterialId] = ownCost + childrenCost;
+                costs[node] = ownCost + childrenCost;
             }
 
             // 根节点（Level=0）的总成本
             var root = nodes.FirstOrDefault(n => n.Level == 0);
-            if (root != null && costs.TryGetValue(root.MaterialId, out var totalCost))
+            if (root != null && costs.TryGetValue(root, out var totalCost))
                 return Math.Round(totalCost, 2);
 
-            // fallback: 汇总所有节点的 ownCost
+            // C-2 fix: fallback 只汇总顶层节点（未被任何其他节点作为子节点引用的节点）
+            // costs[node] 已包含节点自身成本 + 所有子树成本，汇总全部节点会双重计数
+            var childMaterialIds = new HashSet<long>(
+                nodes.Where(n => n.ParentMaterialId.HasValue).Select(n => n.MaterialId));
             double fallback = 0;
             foreach (var n in nodes)
-                if (costs.TryGetValue(n.MaterialId, out var c)) fallback += c;
+                if (!childMaterialIds.Contains(n.MaterialId))
+                    if (costs.TryGetValue(n, out var c))
+                        fallback += c;
             return Math.Round(fallback, 2);
+        }
+
+        // H-3 fix: 提取审计日志 try/catch 辅助方法，消除 3 处重复代码
+        private void TryLogAudit(string action, long? recordId, string? oldValues, string? newValues, long? userId)
+        {
+            try
+            {
+                _auditService.Log(action, "BomStructures", recordId, oldValues, newValues, userId);
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"审计日志写入失败 ({action} BomStructures): {ex.Message}", typeof(BomService));
+            }
         }
     }
 }

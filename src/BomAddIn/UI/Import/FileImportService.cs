@@ -21,21 +21,10 @@ namespace BomAddIn.UI.Import
 
             using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
-            IExcelDataReader reader;
-
-            if (ext == ".csv")
-            {
-                // CSV: 使用 ExcelDataReader 的 CSV reader，需要配置编码
-                var config = new ExcelReaderConfiguration
-                {
-                    FallbackEncoding = Encoding.UTF8
-                };
-                reader = ExcelReaderFactory.CreateCsvReader(stream, config);
-            }
-            else
-            {
-                reader = ExcelReaderFactory.CreateReader(stream);
-            }
+            // C-48 fix: 使用 using 确保 reader 在任何异常路径下都被释放
+            using var reader = ext == ".csv"
+                ? ExcelReaderFactory.CreateCsvReader(stream, new ExcelReaderConfiguration { FallbackEncoding = Encoding.UTF8 })
+                : ExcelReaderFactory.CreateReader(stream);
 
             var dataSet = reader.AsDataSet(new ExcelDataSetConfiguration
             {
@@ -45,10 +34,7 @@ namespace BomAddIn.UI.Import
                 }
             });
 
-            var table = dataSet.Tables[0];
-            reader.Close();
-
-            return table;
+            return dataSet.Tables[0];
         }
 
         /// <summary>解析文件并返回所有工作表</summary>

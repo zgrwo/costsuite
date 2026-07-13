@@ -141,12 +141,14 @@ public class VarianceCalculatorTests
     }
 
     [Fact]
-    public void ComparePrices_ZeroOldPrice_ChangePercentIsZero()
+    public void ComparePrices_ZeroOldPrice_ReturnsMaxValueSentinel()
     {
+        // C-12 fix: priceA==0 且 priceB!=0 时，返回 decimal.MaxValue 作为无穷大百分比标记
+        // 与 CompareBomVersions 使用 double.PositiveInfinity 的逻辑一致
         var results = _calculator.ComparePrices(1, 0.0m, DateTime.Today, "CNY", 100.0m, DateTime.Today, "CNY");
 
         results.Should().HaveCount(1);
-        results[0].ChangePercent.Should().Be(0); // division guard
+        results[0].ChangePercent.Should().Be((double)decimal.MaxValue);
     }
 
     [Fact]

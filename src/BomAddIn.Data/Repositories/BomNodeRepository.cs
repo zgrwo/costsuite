@@ -101,7 +101,9 @@ namespace BomAddIn.Data.Repositories
                   ScrapRate=@ScrapRate, BomViewType=@BomViewType, ValidTo=@ValidTo,
                   VersionState=@VersionState, UpdatedAt=@UpdatedAt
                   WHERE Id=@Id AND OrgId=@OrgId",
-                node);
+                // H-1 fix: 复用 GetBomNodeParams 消除重复转换逻辑
+                // Dapper 忽略 SQL 中未引用的额外参数，UPDATE 只使用其需要的列
+                GetBomNodeParams(node));
         }
 
         public void Update(BomNode node, IDbConnection conn, IDbTransaction tx)
@@ -111,7 +113,8 @@ namespace BomAddIn.Data.Repositories
                   ScrapRate=@ScrapRate, BomViewType=@BomViewType, ValidTo=@ValidTo,
                   VersionState=@VersionState, UpdatedAt=@UpdatedAt
                   WHERE Id=@Id AND OrgId=@OrgId",
-                node, tx);
+                // H-1 fix: 复用 GetBomNodeParams 消除重复转换逻辑
+                GetBomNodeParams(node), tx);
         }
 
         public void Delete(long id)

@@ -63,11 +63,16 @@ namespace BomAddIn.Core.Services
                 });
 
         /// <summary>执行带断路器和重试保护的数据库写入事务</summary>
+        /// <remarks>
+        /// C-9 fix: 移除不必要的 Task.Run 包装。调用方（RibbonController/DashboardViewModel）
+        /// 已在线程调度层面处理 UI 线程隔离，此处无需额外消耗线程池线程。
+        /// SQLite 写入本身是同步的，Polly 策略仅需 Func&lt;Task&gt; 签名。
+        /// </remarks>
         private async Task ExecuteWrappedTransaction(Action transactionBody)
         {
             await CircuitBreaker.ExecuteAsync(
                 () => RetryPolicy.ExecuteAsync(
-                    () => Task.Run(transactionBody)));
+                    () => { transactionBody(); return Task.CompletedTask; }));
         }
 
         public SyncService(

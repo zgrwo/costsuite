@@ -6,6 +6,7 @@ using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Models.Enums;
+using BomAddIn.Infrastructure.Logging;
 
 namespace BomAddIn.Core.Services
 {
@@ -47,19 +48,15 @@ namespace BomAddIn.Core.Services
             if (userId <= 0)
                 throw new ArgumentException("审批人 ID 不能为空或无效。", nameof(userId));
 
-            // 读取版本以验证自我审批约束（B-4 fix: 检查提交人是否为审批人）
-            var version = _versionRepo.GetById(versionId)
-                ?? throw new InvalidOperationException($"BomVersion Id={versionId} not found.");
-
-            // B-4 fix: 防止自行审批 — 审批人不能是提交人
-            if (version.ApprovedBy.HasValue && version.ApprovedBy.Value == userId
-                && version.State == VersionState.PendingReview)
-                throw new InvalidOperationException("不能自行审批：审批人与提交人相同。");
-
-            // Transition 内部已在事务中读取状态（TOCTOU safe）
-            var result = Transition(versionId, VersionState.Approved, userId);
-            _auditService.Log("APPROVE", "BomVersions", versionId,
-                null, comment != null ? AuditService.ToJson(new { Comment = comment }) : null, userId);
+            // C-5 fix: 自我审批检查已移入 Transition 事务内，消除 TOCTOU 窗口
+            var result = Transition(versionId, VersionState.Approved, userId, checkSelfApproval: true);
+            // 审计记录尽力而为，失败不回滚
+            try
+            {
+                _auditService.Log("APPROVE", "BomVersions", versionId,
+                    null, comment != null ? AuditService.ToJson(new { Comment = comment }) : null, userId);
+            }
+            catch (Exception ex) { Infrastructure.Logging.AppLogger.Warn($"审计日志写入失败 (APPROVE): {ex.Message}", typeof(ApprovalService)); }
             return result;
         }
 
@@ -96,7 +93,8 @@ namespace BomAddIn.Core.Services
             return _auditService.GetTableHistory("BomVersions", versionId);
         }
 
-        private BomVersion Transition(long versionId, VersionState targetState, long? userId)
+        private BomVersion Transition(long versionId, VersionState targetState, long? userId,
+            bool checkSelfApproval = false)
         {
             // B-4 fix: 在事务内读取版本状态，消除 TOCTOU 竞态条件
             using var conn = _connectionFactory.CreateConnection();
@@ -108,6 +106,12 @@ namespace BomAddIn.Core.Services
                     ?? throw new InvalidOperationException($"BomVersion Id={versionId} not found.");
 
                 var oldState = version.State;
+
+                // C-5 fix: 自我审批检查移入事务内，读取事务内最新状态，消除 TOCTOU 窗口
+                // ApprovedBy 字段在 PendingReview 状态时存储提交人 ID（用于此检查）
+                if (checkSelfApproval && targetState == VersionState.Approved
+                    && version.ApprovedBy.HasValue && version.ApprovedBy.Value == userId)
+                    throw new InvalidOperationException("不能自行审批：审批人与提交人相同。");
 
                 if (!IsValidTransition(oldState, targetState))
                     throw new InvalidOperationException(

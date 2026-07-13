@@ -164,6 +164,16 @@ namespace BomAddIn.Data.Analysis
                         ParentMaterialId = reader.IsDBNull(8) ? null : (long?)reader.GetInt64(8)
                     });
                 }
+
+                // C-19 fix: CTE 深度达到上限 (Level=19) 时记录警告，防止静默截断
+                if (results.Any(n => n.Level >= 19))
+                {
+                    Infrastructure.Logging.AppLogger.Warn(
+                        $"BOM \"{itemCode}\" 展开达到 CTE 深度上限 (20 层)，结果可能不完整。" +
+                        $"最大层级: {results.Max(n => n.Level)}，总节点数: {results.Count}",
+                        typeof(BomAnalysisProvider));
+                }
+
                 return results;
             }
         }
@@ -283,7 +293,17 @@ namespace BomAddIn.Data.Analysis
                         return $"'{dt:yyyy-MM-dd HH:mm:ss}'";
                     if (val is bool b)
                         return b ? "TRUE" : "FALSE";
-                    return val.ToString()!;
+                    if (val is double d)
+                        return d.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    if (val is long l)
+                        return l.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    if (val is int i)
+                        return i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    if (val is decimal m)
+                        return m.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    // C-17 fix: 未知类型回退值加单引号转义，防止 SQL 注入
+                    var str = val.ToString()!;
+                    return $"'{str.Replace("'", "''")}'";
                 });
                 inlineRows.Add(replaced);
             }

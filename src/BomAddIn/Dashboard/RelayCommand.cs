@@ -23,5 +23,14 @@ namespace BomAddIn.Dashboard
             add => CommandManager.RequerySuggested += value;
             remove => CommandManager.RequerySuggested -= value;
         }
+
+        /// <summary>
+        /// 手动触发 CanExecuteChanged，供 ViewModel 在状态变化时调用。
+        /// 独立 WPF 线程中 CommandManager.RequerySuggested 可能不自动触发。
+        /// </summary>
+        public void RaiseCanExecuteChanged()
+        {
+            CommandManager.InvalidateRequerySuggested();
+        }
     }
 }
