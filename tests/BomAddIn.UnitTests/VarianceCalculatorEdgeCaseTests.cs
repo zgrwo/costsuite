@@ -203,7 +203,10 @@ public class VarianceCalculatorEdgeCaseTests
         var results = _calc.CompareBomVersions(versionA, versionB);
 
         results.Should().ContainSingle(r => r.ChangeType == VarianceChangeType.Modified);
-        results[0].ChangePercent.Should().Be(100.0); // double.PositiveInfinity → 100.0 sentinel
+        // 无穷大百分比哨兵：VarianceCalculator 内部将除以零场景的无穷大百分比映射为 100.0
+        // （参见 VarianceCalculator 中 InfinityPercentSentinel 常量的处理逻辑）
+        const double infinityPercentSentinel = 100.0;
+        results[0].ChangePercent.Should().Be(infinityPercentSentinel);
     }
 
     [Fact]
@@ -255,7 +258,7 @@ public class VarianceCalculatorEdgeCaseTests
         var results = _calc.ComparePrices(1, 0m, DateTime.Today, "CNY", 500m, DateTime.Today, "CNY");
 
         results.Should().HaveCount(1);
-        results[0].ChangePercent.Should().Be((double)decimal.MaxValue);
+        results[0].ChangePercent.Should().BeNull();
     }
 
     [Fact]

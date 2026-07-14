@@ -21,7 +21,7 @@ namespace BomAddIn.Data.Migration
             // DbUp 使用 Microsoft.Data.Sqlite，移除 System.Data.SQLite 专有参数
             var dbUpConnStr = System.Text.RegularExpressions.Regex.Replace(
                 _connectionFactory.ConnectionString,
-                @";\s*(Version|Journal Mode|Foreign Keys)=[^;]*",
+                @";\s*(Version|Journal Mode|Foreign Keys|Busy Timeout|BusyTimeout)=[^;]*",
                 "");
 
             var upgrader = DeployChanges.To

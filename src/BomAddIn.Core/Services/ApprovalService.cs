@@ -53,18 +53,23 @@ namespace BomAddIn.Core.Services
             // 审计记录尽力而为，失败不回滚
             try
             {
-                _auditService.Log("APPROVE", "BomVersions", versionId,
+                _auditService.Log(AuditAction.Approve, "BomVersions", versionId,
                     null, comment != null ? AuditService.ToJson(new { Comment = comment }) : null, userId);
             }
             catch (Exception ex) { Infrastructure.Logging.AppLogger.Warn($"审计日志写入失败 (APPROVE): {ex.Message}", typeof(ApprovalService)); }
             return result;
         }
 
-        public BomVersion Reject(long versionId, long userId, string? comment = null)
+        public BomVersion Reject(long versionId, long userId, string comment)
         {
+            if (userId <= 0)
+                throw new ArgumentException("审批人 ID 不能为空或无效。", nameof(userId));
+            if (string.IsNullOrWhiteSpace(comment))
+                throw new ArgumentException("Rejection requires a reason.", nameof(comment));
+
             var version = Transition(versionId, VersionState.Rejected, userId);
-            _auditService.Log("REJECT", "BomVersions", versionId,
-                null, comment != null ? AuditService.ToJson(new { Comment = comment }) : null, userId);
+            _auditService.Log(AuditAction.Reject, "BomVersions", versionId,
+                null, AuditService.ToJson(new { Comment = comment }), userId);
             return version;
         }
 
@@ -108,7 +113,8 @@ namespace BomAddIn.Core.Services
                 var oldState = version.State;
 
                 // C-5 fix: 自我审批检查移入事务内，读取事务内最新状态，消除 TOCTOU 窗口
-                // ApprovedBy 字段在 PendingReview 状态时存储提交人 ID（用于此检查）
+                // ApprovedBy 字段双用途：PendingReview 时存提交人 ID（用于此检查），
+                // 审批后由 UpdateState 更新为审批人 ID。详见 BomVersion.ApprovedBy 文档。
                 if (checkSelfApproval && targetState == VersionState.Approved
                     && version.ApprovedBy.HasValue && version.ApprovedBy.Value == userId)
                     throw new InvalidOperationException("不能自行审批：审批人与提交人相同。");
@@ -121,7 +127,7 @@ namespace BomAddIn.Core.Services
                 _versionRepo.UpdateState(versionId, targetState, userId, conn, tx);
 
                 // 记录审计日志（在同一事务内）
-                _auditService.Log("STATE_CHANGE", "BomVersions", conn, tx,
+                _auditService.Log(AuditAction.StateChange, "BomVersions", conn, tx,
                     versionId,
                     AuditService.ToJson(new { oldState = oldState.ToString() }),
                     AuditService.ToJson(new { newState = targetState.ToString(), userId }),

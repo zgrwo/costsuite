@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace BomAddIn.EventBus
 {
@@ -7,10 +8,13 @@ namespace BomAddIn.EventBus
     /// 轻量事件总线 — 进程内 pub-sub。
     /// V1.0 简单实现: 基于 Dictionary + List 的同步发布。
     /// UI 订阅者自行通过 Dispatcher 封送回 UI 线程。
+    ///
+    /// handler 使用 WeakReference 包裹，防止订阅者忘记退订导致内存泄漏。
+    /// 每次 Publish 时自动清理已回收的订阅。
     /// </summary>
     public class ExcelEventBus : IEventBus
     {
-        private readonly Dictionary<Type, List<Delegate>> _handlers = new();
+        private readonly Dictionary<Type, List<WeakReference<Delegate>>> _handlers = new();
         private readonly object _lock = new();
 
         /// <summary>订阅事件</summary>
@@ -21,10 +25,10 @@ namespace BomAddIn.EventBus
             {
                 if (!_handlers.TryGetValue(typeof(T), out var list))
                 {
-                    list = new List<Delegate>();
+                    list = new List<WeakReference<Delegate>>();
                     _handlers[typeof(T)] = list;
                 }
-                list.Add(handler);
+                list.Add(new WeakReference<Delegate>(handler));
             }
         }
 
@@ -36,7 +40,13 @@ namespace BomAddIn.EventBus
             {
                 if (_handlers.TryGetValue(typeof(T), out var list))
                 {
-                    list.Remove(handler);
+                    // 移除匹配的 handler（存活的和已回收的无效引用一并清理）
+                    list.RemoveAll(wr =>
+                    {
+                        if (wr.TryGetTarget(out var existing))
+                            return existing == (Delegate)handler;
+                        return true; // 已回收的引用也移除
+                    });
                     if (list.Count == 0)
                         _handlers.Remove(typeof(T));
                 }
@@ -48,14 +58,31 @@ namespace BomAddIn.EventBus
         {
             if (@event == null) throw new ArgumentNullException(nameof(@event));
 
-            List<Delegate> handlers;
+            List<(int Index, Delegate Target)> handlers;
             lock (_lock)
             {
                 if (!_handlers.TryGetValue(typeof(T), out var list)) return;
-                handlers = new List<Delegate>(list); // 快照，避免迭代时修改
+
+                // 快照 + 清理死引用：遍历所有 weak ref，只保留存活的
+                var snapshot = new List<Delegate>(list.Count);
+                for (int i = list.Count - 1; i >= 0; i--)
+                {
+                    if (list[i].TryGetTarget(out var target))
+                        snapshot.Add(target);
+                    else
+                        list.RemoveAt(i); // 清理已回收的订阅
+                }
+
+                if (list.Count == 0)
+                {
+                    _handlers.Remove(typeof(T));
+                    return;
+                }
+
+                handlers = snapshot.Select(d => (0, d)).ToList();
             }
 
-            foreach (var handler in handlers)
+            foreach (var (_, handler) in handlers)
             {
                 try
                 {

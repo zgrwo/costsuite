@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -11,6 +12,7 @@ using BomAddIn.Ribbon;
 using BomAddIn.UI.TaskPane;
 using BomAddIn.UDF;
 using BomAddIn.Infrastructure.Logging;
+using BomAddIn.Infrastructure.Models.Enums;
 using ExcelDna.Integration;
 using ExcelDna.Integration.CustomUI;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +34,8 @@ namespace BomAddIn
         private static IServiceProvider? _serviceProvider;
         // C-24 fix: 后台任务取消令牌，AutoClose 时 Cancel 防止 dispose 后访问 ServiceProvider
         private static CancellationTokenSource? _backgroundTasksCts;
+        // 追踪后台任务，AutoClose 时等待其完成后再释放 ServiceProvider
+        private static readonly List<Task> _backgroundTasks = new();
 
         /// <summary>
         /// 全局 DI 容器（供 UDF 等无 DI 注入的上下文使用）。
@@ -75,15 +79,15 @@ namespace BomAddIn
                 var ct = _backgroundTasksCts.Token;
 
                 // 5a. 创建每日快照（后台执行，不阻塞 Excel UI）
-                Task.Run(() => CreateDailySnapshotIfNeeded(ct), ct);
+                _backgroundTasks.Add(Task.Run(() => CreateDailySnapshotIfNeeded(ct), ct));
 
                 // 6. 预热 DuckDB（后台加载，不阻塞启动）
                 // R2-09: 在 Task.Run 内部创建独立 scope，避免外部 scope 提前释放
-                Task.Run(() => WarmUpDuckDb(ct), ct);
+                _backgroundTasks.Add(Task.Run(() => WarmUpDuckDb(ct), ct));
 
                 // 6a. 种子数据（首次启动时后台生成，不阻塞 Excel UI）
                 // R2-13: 提升至开发环境默认 5000 物料 + 25000 BOM 节点
-                Task.Run(() => GenerateSeedDataIfNeeded(ct), ct);
+                _backgroundTasks.Add(Task.Run(() => GenerateSeedDataIfNeeded(ct), ct));
 
                 // 7. 日志环境信息
                 var envManager = _serviceProvider!.GetRequiredService<BomAddIn.Infrastructure.Config.EnvironmentManager>();
@@ -110,6 +114,12 @@ namespace BomAddIn
         {
             // C-24 fix: 先取消后台任务，等待短暂完成后再 dispose ServiceProvider
             _backgroundTasksCts?.Cancel();
+
+            // 等待后台任务完成（最多 5 秒）
+            try { Task.WaitAll(_backgroundTasks.ToArray(), TimeSpan.FromSeconds(5)); }
+            catch (AggregateException) { /* 任务可能因取消而抛出异常，忽略 */ }
+            _backgroundTasks.Clear();
+
             _backgroundTasksCts?.Dispose();
             _backgroundTasksCts = null;
 
@@ -160,7 +170,7 @@ namespace BomAddIn
                 if (ct.IsCancellationRequested) return;
                 using var scope = ServiceProvider.CreateScope();
                 var snapshotService = scope.ServiceProvider.GetRequiredService<BomAddIn.Core.Services.ISnapshotService>();
-                snapshotService.CreateSnapshot("Daily", $"Auto-snapshot at startup: {DateTime.Today:yyyy-MM-dd}");
+                snapshotService.CreateSnapshot(UserRole.Admin, "Daily", $"Auto-snapshot at startup: {DateTime.Today:yyyy-MM-dd}");
             }
             catch (Exception ex)
             {
@@ -179,7 +189,7 @@ namespace BomAddIn
                 if (!generator.HasSeedData())
                 {
                     // R2-13: 开发环境默认 5000 物料 + 25000 BOM 节点 + 6 个月历史
-                    var result = generator.Generate(materialCount: 5000, bomNodeCount: 25000, historyMonths: 6);
+                    var result = generator.Generate(UserRole.Admin, materialCount: 5000, bomNodeCount: 25000, historyMonths: 6);
                     if (!result.Skipped)
                     {
                         AppLogger.Info(
@@ -214,7 +224,7 @@ namespace BomAddIn
                     taskPane.Visible = true;
                 };
             }
-            catch
+            catch (System.Runtime.InteropServices.COMException)
             {
                 // TaskPane 注册失败不阻止启动（非 Excel 宿主环境下）
             }

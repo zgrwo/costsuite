@@ -35,7 +35,7 @@ namespace BomAddIn.Data.Repositories
                     AND (ValidTo IS NULL OR date(ValidTo) > date(@Date))
                     AND VersionState = 'Released'
                   ORDER BY Position",
-                new { ParentId = parentMaterialId, Date = date });
+                new { ParentId = parentMaterialId, Date = date }).ToList();
         }
 
         public IEnumerable<BomNode> GetByMaterialId(long materialId, DateTime? asOfDate = null)
@@ -48,7 +48,7 @@ namespace BomAddIn.Data.Repositories
                     AND date(ValidFrom) <= date(@Date)
                     AND (ValidTo IS NULL OR date(ValidTo) > date(@Date))
                     AND VersionState = 'Released'",
-                new { MaterialId = materialId, Date = date });
+                new { MaterialId = materialId, Date = date }).ToList();
         }
 
         public void Add(BomNode node)

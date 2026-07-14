@@ -23,7 +23,7 @@ public class SeedDataGeneratorTests : IClassFixture<SqliteTestFixture>
         _generator.HasSeedData().Should().BeFalse();
 
         // 2. 生成 150 物料 + 500 BOM + 2 月历史
-        var result1 = _generator.Generate(materialCount: 150, bomNodeCount: 500, historyMonths: 2);
+        var result1 = _generator.Generate(UserRole.Admin, materialCount: 150, bomNodeCount: 500, historyMonths: 2);
         result1.Skipped.Should().BeFalse();
         result1.MaterialsCreated.Should().Be(150);
         result1.BomNodesCreated.Should().Be(500);
@@ -32,7 +32,7 @@ public class SeedDataGeneratorTests : IClassFixture<SqliteTestFixture>
         _generator.HasSeedData().Should().BeTrue();
 
         // 4. 再次生成跳过
-        var result2 = _generator.Generate(materialCount: 10, bomNodeCount: 50, historyMonths: 1);
+        var result2 = _generator.Generate(UserRole.Admin, materialCount: 10, bomNodeCount: 50, historyMonths: 1);
         result2.Skipped.Should().BeTrue();
     }
 

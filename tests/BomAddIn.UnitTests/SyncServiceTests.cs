@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using BomAddIn.Core.Services;
 using BomAddIn.Data.Connection;
@@ -62,7 +63,7 @@ public class SyncServiceTests
     public void GetLastSyncTime_NoSyncLog_ReturnsNull()
     {
         // C-4 fix: GetLastSyncTime 已委托给 ISyncLogRepository
-        _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns((string?)null);
+        _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns(() => null);
 
         var result = _service.GetLastSyncTime();
 

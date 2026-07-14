@@ -11,11 +11,22 @@ namespace BomAddIn.Dashboard
     /// </summary>
     public class ClickTwiceFix : IDisposable
     {
-        private readonly HwndSource? _hwndSource;
+        private HwndSource? _hwndSource;
+        private readonly Window _wpfWindow;
 
         public ClickTwiceFix(Window wpfWindow)
         {
-            _hwndSource = PresentationSource.FromVisual(wpfWindow) as HwndSource;
+            _wpfWindow = wpfWindow;
+        }
+
+        /// <summary>
+        /// 窗口初始化完成后安装 Hook（在 SourceInitialized 事件中调用）。
+        /// 构造时调用 PresentationSource.FromVisual 会返回 null，因为窗口尚未初始化。
+        /// </summary>
+        public void Initialize()
+        {
+            if (_hwndSource != null) return;
+            _hwndSource = PresentationSource.FromVisual(_wpfWindow) as HwndSource;
             _hwndSource?.AddHook(WndProcHook);
         }
 

@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using BomAddIn.Core.Services;
 using BomAddIn.Infrastructure.Models.Enums;
@@ -108,7 +110,7 @@ namespace BomAddIn.Ribbon
             }
         }
 
-        public void OnImportBom(IRibbonControl control)
+        public async void OnImportBom(IRibbonControl control)
         {
             using var dialog = new OpenFileDialog
             {
@@ -121,8 +123,8 @@ namespace BomAddIn.Ribbon
 
             try
             {
-                // 1. 解析文件
-                var table = BomAddIn.UI.Import.FileImportService.ParseFile(dialog.FileName);
+                // 1. 解析文件（后台执行，避免冻结 Excel UI）
+                DataTable table = await Task.Run(() => BomAddIn.UI.Import.FileImportService.ParseFile(dialog.FileName));
                 if (table.Rows.Count == 0)
                 {
                     MessageBox.Show("文件中没有数据行。", "BOM Suite — 导入",
@@ -183,12 +185,15 @@ namespace BomAddIn.Ribbon
 
                 if (confirmResult != DialogResult.OK) return;
 
-                // 4. 执行导入
-                ImportResult result;
-                if (hasParentCode)
-                    result = importer.ImportBomStructures(table, orgId: 1);
-                else
-                    result = importer.ImportMaterials(table, orgId: 1);
+                // 4. 执行导入（后台执行，避免冻结 Excel UI）
+                ImportResult result = await Task.Run(() =>
+                {
+                    using var importScope = Services.CreateScope();
+                    var importImporter = importScope.ServiceProvider.GetRequiredService<IBomExcelImporter>();
+                    return hasParentCode
+                        ? importImporter.ImportBomStructures(table, 1, UserRole.Admin)
+                        : importImporter.ImportMaterials(table, 1, UserRole.Admin);
+                });
 
                 // 5. 显示结果
                 var resultMsg = new System.Text.StringBuilder();

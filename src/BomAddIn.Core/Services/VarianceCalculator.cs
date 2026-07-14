@@ -25,9 +25,9 @@ namespace BomAddIn.Core.Services
             // 分组比较：每个 (ItemCode, ParentMaterialId, Level) 组内按确定性排序后逐位比较
             // G-2 fix: 排序以 Description 为主键（比 Quantity 更稳定），MaterialId 为最终平局裁决
             var groupsA = versionA.GroupBy(NodeKey).ToDictionary(
-                g => g.Key, g => g.OrderBy(n => n.Description).ThenBy(n => n.Quantity).ThenBy(n => n.MaterialId).ToList());
+                g => g.Key, g => g.OrderBy(n => n.MaterialId).ThenBy(n => n.Description).ThenBy(n => n.Quantity).ToList());
             var groupsB = versionB.GroupBy(NodeKey).ToDictionary(
-                g => g.Key, g => g.OrderBy(n => n.Description).ThenBy(n => n.Quantity).ThenBy(n => n.MaterialId).ToList());
+                g => g.Key, g => g.OrderBy(n => n.MaterialId).ThenBy(n => n.Description).ThenBy(n => n.Quantity).ToList());
 
             var allKeys = new HashSet<string>(groupsA.Keys);
             allKeys.UnionWith(groupsB.Keys);
@@ -138,11 +138,12 @@ namespace BomAddIn.Core.Services
             if (Math.Abs(priceA - priceB) < relativeThreshold)
                 return results;
 
-            // C-12 fix: priceA==0 时与数量变化逻辑一致，使用 decimal.MaxValue 标记无穷大百分比
-            // 当旧价格为 0 且新价格非 0（新品定价），百分比变化为无穷大
-            var changePct = priceA > 0
-                ? (priceB - priceA) / priceA * 100
-                : (priceB != 0 ? decimal.MaxValue : 0);
+            // C-12 fix: priceA==0 时百分比变化为 null（旧价格为零，无法计算有意义的百分比）
+            double? changePct;
+            if (priceA > 0)
+                changePct = (double)Math.Round((priceB - priceA) / priceA * 100, 2);
+            else
+                changePct = priceB != 0 ? null : 0;
 
             results.Add(new VarianceResult
             {
@@ -152,7 +153,7 @@ namespace BomAddIn.Core.Services
                 Dimension = VarianceDimension.Price,
                 OldValue = priceA.ToString("F4"),
                 NewValue = priceB.ToString("F4"),
-                ChangePercent = (double)Math.Round(changePct, 2)
+                ChangePercent = changePct
             });
 
             return results;

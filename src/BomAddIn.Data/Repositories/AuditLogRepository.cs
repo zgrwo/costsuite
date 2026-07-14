@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Data.Connection;
 using Dapper;
@@ -30,7 +31,7 @@ namespace BomAddIn.Data.Repositories
                 new
                 {
                     log.UserId,
-                    log.Action,
+                    Action = log.Action.ToString(),
                     log.TableName,
                     log.RecordId,
                     log.OldValues,
@@ -47,7 +48,7 @@ namespace BomAddIn.Data.Repositories
                   WHERE TableName = @TableName AND Timestamp >= @Since
                   ORDER BY Timestamp DESC
                   LIMIT @Limit",
-                new { TableName = tableName, Since = since.ToString("o"), Limit = limit });
+                new { TableName = tableName, Since = since.ToString("o"), Limit = limit }).ToList();
         }
 
         public IEnumerable<AuditLog> GetByTableAndRecordId(string tableName, long recordId, int limit = 50)
@@ -58,7 +59,7 @@ namespace BomAddIn.Data.Repositories
                   WHERE TableName = @TableName AND RecordId = @RecordId
                   ORDER BY Timestamp DESC
                   LIMIT @Limit",
-                new { TableName = tableName, RecordId = recordId, Limit = limit });
+                new { TableName = tableName, RecordId = recordId, Limit = limit }).ToList();
         }
 
         public IEnumerable<AuditLog> GetByUser(long userId, int limit = 100)
@@ -69,7 +70,7 @@ namespace BomAddIn.Data.Repositories
                   WHERE UserId = @UserId
                   ORDER BY Timestamp DESC
                   LIMIT @Limit",
-                new { UserId = userId, Limit = limit });
+                new { UserId = userId, Limit = limit }).ToList();
         }
 
         public IEnumerable<AuditLog> GetRecent(int limit = 50)
@@ -77,7 +78,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             return conn.Query<AuditLog>(
                 "SELECT * FROM AuditLogs ORDER BY Timestamp DESC LIMIT @Limit",
-                new { Limit = limit });
+                new { Limit = limit }).ToList();
         }
     }
 }

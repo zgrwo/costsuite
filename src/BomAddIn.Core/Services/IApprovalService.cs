@@ -14,7 +14,7 @@ namespace BomAddIn.Core.Services
         BomVersion Approve(long versionId, long userId, string? comment = null);
 
         /// <summary>审批拒绝 PendingReview → Rejected</summary>
-        BomVersion Reject(long versionId, long userId, string? comment = null);
+        BomVersion Reject(long versionId, long userId, string comment);
 
         /// <summary>重新提交 Rejected → Draft</summary>
         BomVersion Resubmit(long versionId, long? userId = null);

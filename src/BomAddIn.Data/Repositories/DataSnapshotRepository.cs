@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Data.Connection;
 using Dapper;
@@ -24,7 +25,7 @@ namespace BomAddIn.Data.Repositories
                   SELECT last_insert_rowid();",
                 new
                 {
-                    snapshot.SnapshotType,
+                    SnapshotType = snapshot.SnapshotType.ToString(),
                     snapshot.SnapshotData,
                     CreatedAt = snapshot.CreatedAt.ToString("o"),
                     snapshot.Description
@@ -55,7 +56,7 @@ namespace BomAddIn.Data.Repositories
                 @"SELECT * FROM DataSnapshots
                   WHERE SnapshotType = @Type
                   ORDER BY CreatedAt DESC LIMIT @Limit",
-                new { Type = snapshotType, Limit = limit });
+                new { Type = snapshotType, Limit = limit }).ToList();
         }
 
         public void DeleteOlderThan(DateTime cutoff, string? snapshotType = null)

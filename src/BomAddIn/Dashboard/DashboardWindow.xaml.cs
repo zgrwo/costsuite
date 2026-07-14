@@ -15,8 +15,9 @@ namespace BomAddIn.Dashboard
             var vm = new DashboardViewModel();
             DataContext = vm;
 
-            // 应用 Click-Twice 修复
+            // 应用 Click-Twice 修复（在 SourceInitialized 中安装 Hook，构造时窗口未初始化）
             _clickTwiceFix = new ClickTwiceFix(this);
+            SourceInitialized += (_, _) => _clickTwiceFix.Initialize();
 
             // 用户关闭时：隐藏而非销毁（保持数据缓存）
             // 程序关闭时：允许真正关闭

@@ -42,7 +42,7 @@ public class ConfigServiceTests : IClassFixture<SqliteTestFixture>
         var repo = new AppConfigRepository(_fixture);
         var service = CreateService(repo, cache);
 
-        service.SetValue("test_key", "test_value", "test description");
+        service.SetValue("test_key", "test_value", UserRole.Admin, "test description");
 
         var value = service.GetValue("test_key");
         value.Should().Be("test_value");
@@ -55,8 +55,8 @@ public class ConfigServiceTests : IClassFixture<SqliteTestFixture>
         var repo = new AppConfigRepository(_fixture);
         var service = CreateService(repo, cache);
 
-        service.SetValue("overwrite_key", "v1");
-        service.SetValue("overwrite_key", "v2");
+        service.SetValue("overwrite_key", "v1", UserRole.Admin);
+        service.SetValue("overwrite_key", "v2", UserRole.Admin);
 
         service.GetValue("overwrite_key").Should().Be("v2");
     }
@@ -68,7 +68,7 @@ public class ConfigServiceTests : IClassFixture<SqliteTestFixture>
         var repo = new AppConfigRepository(_fixture);
         var service = CreateService(repo, cache);
 
-        service.SetValue("cache_key", "cached_value");
+        service.SetValue("cache_key", "cached_value", UserRole.Admin);
         // 第二次获取应从缓存命中
         var value = service.GetValue("cache_key");
         value.Should().Be("cached_value");
@@ -81,8 +81,8 @@ public class ConfigServiceTests : IClassFixture<SqliteTestFixture>
         var repo = new AppConfigRepository(_fixture);
         var service = CreateService(repo, cache);
 
-        service.SetValue("ga_1", "a");
-        service.SetValue("ga_2", "b");
+        service.SetValue("ga_1", "a", UserRole.Admin);
+        service.SetValue("ga_2", "b", UserRole.Admin);
 
         var all = service.GetAll();
         all.Should().NotBeNull();
@@ -95,7 +95,7 @@ public class ConfigServiceTests : IClassFixture<SqliteTestFixture>
         var repo = new AppConfigRepository(_fixture);
         var service = CreateService(repo, cache);
 
-        service.SetValue("wu_key", "wu_val");
+        service.SetValue("wu_key", "wu_val", UserRole.Admin);
 
         // WarmUp 后应立即命中缓存
         service.WarmUp();

@@ -34,6 +34,7 @@ namespace BomAddIn.Core.Services
             ["Level"] = new[] { "层级", "Level", "BOM Level", "BOM层级" },
             ["ParentItemCode"] = new[] { "父项编码", "Parent Code", "Parent", "上层编码", "父物料" },
             ["Position"] = new[] { "位号", "Position", "工位", "参考标识符", "RefDes" },
+            ["ScrapRate"] = new[] { "损耗率", "Scrap Rate", "废品率", "Scrap" },
         };
 
         public BomExcelImporter(IMaterialRepository materialRepo, IBomNodeRepository bomNodeRepo,
@@ -45,7 +46,7 @@ namespace BomAddIn.Core.Services
             _authz = authz;
         }
 
-        public ImportResult ImportMaterials(DataTable table, long orgId, UserRole callerRole = UserRole.Admin)
+        public ImportResult ImportMaterials(DataTable table, long orgId, UserRole callerRole)
         {
             _authz.Demand(callerRole, BomOperation.MaterialCreate);
             var result = new ImportResult { RowCount = table.Rows.Count };
@@ -109,10 +110,8 @@ namespace BomAddIn.Core.Services
                     }
                 }
 
-                if (result.Errors.Count == 0)
-                    tx.Commit();
-                else
-                    tx.Rollback();
+                // Skip-bad-rows: commit successfully imported rows, leave errors for caller to review
+                tx.Commit();
             }
             catch
             {
@@ -124,7 +123,7 @@ namespace BomAddIn.Core.Services
             return result;
         }
 
-        public ImportResult ImportBomStructures(DataTable table, long orgId, UserRole callerRole = UserRole.Admin)
+        public ImportResult ImportBomStructures(DataTable table, long orgId, UserRole callerRole)
         {
             _authz.Demand(callerRole, BomOperation.BomCreate);
 
@@ -175,17 +174,8 @@ namespace BomAddIn.Core.Services
                         var parentCode = GetCell(row, mapping, "ParentItemCode");
                         var childCode = GetCell(row, mapping, "ItemCode");
 
-                        Material? parent = null;
-                        if (!materialLookup.TryGetValue(parentCode, out var p))
-                            parent = _materialRepo.GetByCode(orgId, parentCode, conn, tx);
-                        else
-                            parent = p;
-
-                        Material? child = null;
-                        if (!materialLookup.TryGetValue(childCode, out var c))
-                            child = _materialRepo.GetByCode(orgId, childCode, conn, tx);
-                        else
-                            child = c;
+                        materialLookup.TryGetValue(parentCode, out var parent);
+                        materialLookup.TryGetValue(childCode, out var child);
 
                         if (parent == null) { result.Errors.Add($"第 {rowNum} 行: 父物料 '{parentCode}' 不存在。"); continue; }
                         if (child == null) { result.Errors.Add($"第 {rowNum} 行: 子物料 '{childCode}' 不存在。"); continue; }
@@ -244,17 +234,8 @@ namespace BomAddIn.Core.Services
                             continue;
                         }
 
-                        Material? parent = null;
-                        if (!materialLookup.TryGetValue(parentCode, out var p))
-                            parent = _materialRepo.GetByCode(orgId, parentCode, conn, tx);
-                        else
-                            parent = p;
-
-                        Material? child = null;
-                        if (!materialLookup.TryGetValue(childCode, out var c))
-                            child = _materialRepo.GetByCode(orgId, childCode, conn, tx);
-                        else
-                            child = c;
+                        materialLookup.TryGetValue(parentCode, out var parent);
+                        materialLookup.TryGetValue(childCode, out var child);
 
                         if (parent == null) { result.Errors.Add($"第 {rowNum} 行: 父物料 '{parentCode}' 不存在。"); continue; }
                         if (child == null) { result.Errors.Add($"第 {rowNum} 行: 子物料 '{childCode}' 不存在。"); continue; }
@@ -288,11 +269,8 @@ namespace BomAddIn.Core.Services
                     }
                 }
 
-                // 事务提交/回滚决策（Phase 3 完成后）
-                if (result.Errors.Count == 0)
-                    tx.Commit();
-                else
-                    tx.Rollback();
+                // Skip-bad-rows: commit successfully imported rows, leave errors for caller to review
+                tx.Commit();
             }
             catch
             {

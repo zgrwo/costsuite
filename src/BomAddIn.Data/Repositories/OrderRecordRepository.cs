@@ -29,7 +29,7 @@ namespace BomAddIn.Data.Repositories
                 parameters.Add("DueBefore", dueBefore.Value.ToString("o"));
             }
             sql += " ORDER BY DueDate";
-            return conn.Query<OrderRecord>(sql, parameters);
+            return conn.Query<OrderRecord>(sql, parameters).ToList();
         }
 
         public void BulkUpsert(IEnumerable<OrderRecord> records)

@@ -48,8 +48,11 @@ public class DuckDBCompatibilityTests : IClassFixture<SqliteTestFixture>
     [Fact]
     public void DuckDB_LoadFromSqlite_CompletesSuccessfully()
     {
-        // 种子数据
+        // 种子数据（按 FK 引用顺序：先 Suppliers，再 Materials，再 Prices/BomStructures）
         using var sqliteConn = _fixture.CreateConnection();
+        sqliteConn.Execute("INSERT INTO Suppliers (OrgId, Code, Name) VALUES (1, 'SUP-001', 'TestSupplier')");
+        var supId = sqliteConn.ExecuteScalar<long>("SELECT MAX(Id) FROM Suppliers");
+
         sqliteConn.Execute("INSERT INTO Materials (OrgId, Code, Name, Spec, Unit, Category, IsActive) VALUES (1, 'MAT-001', 'Test', 'SPEC', 'PCS', 'Raw', 1)");
         var matId = sqliteConn.ExecuteScalar<long>("SELECT MAX(Id) FROM Materials");
 
@@ -61,9 +64,9 @@ public class DuckDBCompatibilityTests : IClassFixture<SqliteTestFixture>
             VALUES (1, @P, @C, 2, 1, '2026-01-01', 'Released')",
             new { P = matId, C = childId });
 
-        sqliteConn.Execute(@"INSERT INTO Prices (OrgId, MaterialId, UnitPrice, Currency, EffectiveDate)
-            VALUES (1, @M, 100, 'CNY', '2026-01-01')",
-            new { M = matId });
+        sqliteConn.Execute(@"INSERT INTO Prices (OrgId, MaterialId, SupplierId, UnitPrice, Currency, EffectiveDate)
+            VALUES (1, @M, @S, 100, 'CNY', '2026-01-01')",
+            new { M = matId, S = supId });
 
         var provider = new BomAnalysisProvider();
         provider.LoadFromSqlite(sqliteConn);

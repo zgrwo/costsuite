@@ -6,6 +6,7 @@ using BomAddIn.Data.Connection;
 using BomAddIn.Data.Migration;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Config;
+using BomAddIn.Infrastructure.Models.Enums;
 using Dapper;
 
 namespace BomAddIn.Diagnostic;
@@ -86,6 +87,16 @@ public class Program
         Console.WriteLine("[OK] OS: " + Environment.OSVersion);
         Console.WriteLine($"[OK] 当前环境: {ReadCurrentEnvironment()}");
 
+        // TODO: 添加数据库目录文件写入权限检查
+        //   使用 System.IO.File.WriteAllText(System.IO.Path.Combine(dbDir, ".write_test"), "test")
+        //   后清理，验证应用是否有权写入数据库目录。
+
+        // TODO: 添加 ERP 端点网络可达性检查
+        //   从 AppConfig 读取 ERP endpoint URL，使用 HttpClient 或 Ping 验证连通性。
+
+        // TODO: 添加配置文件存在性和可解析性检查
+        //   验证 NLog.config、app.config 等配置文件存在且解析无异常。
+
         try
         {
             var factory = CreateEnvFactory();
@@ -131,7 +142,7 @@ public class Program
             var generator = new SeedDataGenerator(factory, new AuthorizationService());
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
-            var result = generator.Generate(materialCount, bomNodeCount, months);
+            var result = generator.Generate(UserRole.Admin, materialCount, bomNodeCount, months);
             watch.Stop();
 
             if (result.Skipped)

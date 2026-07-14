@@ -94,7 +94,7 @@ namespace BomAddIn.Data.Repositories
         /// 单条 SQL 中完成"自增 → 判断 → 锁仓"，消除 TOCTOU 竞态窗口（code-review C-10）。
         /// 返回更新后的失败次数。
         /// </summary>
-        public int IncrementAndLockIfNeeded(long userId, int maxAttempts, string lockoutTime)
+        public int IncrementAndLockIfNeeded(long userId, int maxAttempts, DateTime? lockoutUntil)
         {
             using var conn = _connectionFactory.CreateConnection();
             return conn.ExecuteScalar<int>(
@@ -103,7 +103,7 @@ namespace BomAddIn.Data.Repositories
                     LockoutUntil = CASE WHEN FailedLoginAttempts + 1 >= @MaxAttempts THEN @LockoutTime ELSE LockoutUntil END
                   WHERE Id = @Id;
                   SELECT FailedLoginAttempts FROM Users WHERE Id = @Id;",
-                new { Id = userId, MaxAttempts = maxAttempts, LockoutTime = lockoutTime });
+                new { Id = userId, MaxAttempts = maxAttempts, LockoutTime = lockoutUntil?.ToString("o") });
         }
 
         public IEnumerable<User> GetAll()

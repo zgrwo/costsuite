@@ -20,6 +20,7 @@ namespace BomAddIn.Dashboard
     public class DashboardViewModel : INotifyPropertyChanged
     {
         private readonly IServiceProvider _services;
+        private readonly System.Windows.Threading.Dispatcher _uiDispatcher;
         private string _statusText = "就绪";
         private int _materialCount;
         private int _activeBomCount;
@@ -32,6 +33,7 @@ namespace BomAddIn.Dashboard
         public DashboardViewModel(IServiceProvider? services = null)
         {
             _services = services ?? BomAddInStartup.ServiceProvider;
+            _uiDispatcher = Application.Current?.Dispatcher ?? System.Windows.Threading.Dispatcher.CurrentDispatcher;
 
             // 命令
             RefreshCommand = new RelayCommand(_ => RefreshAll());
@@ -47,7 +49,17 @@ namespace BomAddIn.Dashboard
         public async Task InitializeAsync()
         {
             StatusText = "加载中...";
-            await Task.Run(() => RefreshAll());
+            var (alertCount, materialCount, lastSyncText, alerts) = await Task.Run(() => LoadData());
+            _uiDispatcher.Invoke(() =>
+            {
+                MaterialCount = materialCount;
+                ActiveBomCount = materialCount;
+                Alerts.Clear();
+                foreach (var a in alerts) Alerts.Add(a);
+                AlertCount = alertCount;
+                LastSyncText = lastSyncText;
+                StatusText = $"刷新完成 — {DateTime.Now:HH:mm:ss}";
+            });
         }
 
         #region Properties
@@ -104,49 +116,74 @@ namespace BomAddIn.Dashboard
         public ICommand ExpandBomCommand { get; }
         public ICommand SyncNowCommand { get; }
 
+        /// <summary>
+        /// 释放命令资源，退订 CommandManager.RequerySuggested 静态事件。
+        /// 在 View 关闭时调用（如 Window.Closed 事件）。
+        /// </summary>
+        public void CleanupCommands()
+        {
+            (RefreshCommand as IDisposable)?.Dispose();
+            (ExpandBomCommand as IDisposable)?.Dispose();
+            (SyncNowCommand as IDisposable)?.Dispose();
+        }
+
         #endregion
 
         #region Commands
 
+        /// <summary>
+        /// 后台加载数据（线程池线程安全），返回所有需要 UI 绑定的数据。
+        /// </summary>
+        private (int AlertCount, int MaterialCount, string LastSyncText, List<AlertItem> Alerts) LoadData()
+        {
+            using var scope = _services.CreateScope();
+            var sp = scope.ServiceProvider;
+
+            // v2 M-29: 使用 SQL COUNT(*) 而非 GetAll().Count() 避免拉取全量物料
+            var materialRepo = sp.GetRequiredService<IMaterialRepository>();
+            var materialCount = materialRepo.GetCount(1);
+
+            // 预警: 刷新预警列表
+            var evaluator = sp.GetRequiredService<IAlertEvaluator>();
+            var alerts = evaluator.Evaluate(Array.Empty<VarianceResult>());
+            var alertItems = alerts.Select(a => new AlertItem
+            {
+                Severity = a.Severity.ToString(),
+                Message = a.Message,
+                TriggeredRule = a.TriggeredRule
+            }).ToList();
+
+            // 同步状态
+            var syncService = sp.GetRequiredService<ISyncService>();
+            var lastSync = syncService.GetLastSyncTime();
+            var lastSyncText = lastSync?.ToString("yyyy-MM-dd HH:mm") ?? "从未同步";
+
+            return (alerts.Count, materialCount, lastSyncText, alertItems);
+        }
+
         public void RefreshAll()
         {
-            StatusText = "刷新中...";
+            _uiDispatcher.Invoke(() => StatusText = "刷新中...");
 
             try
             {
-                using var scope = _services.CreateScope();
-                var sp = scope.ServiceProvider;
+                var (alertCount, materialCount, lastSyncText, alerts) = LoadData();
 
-                // v2 M-29: 使用 SQL COUNT(*) 而非 GetAll().Count() 避免拉取全量物料
-                var materialRepo = sp.GetRequiredService<IMaterialRepository>();
-                MaterialCount = materialRepo.GetCount(1);
-
-                // KPI: 活跃 BOM 数（估算为有子节点的物料数）
-                ActiveBomCount = MaterialCount; // V1.0 简化
-
-                // 预警: 刷新预警列表 — M-27: 使用 Clear+Add 代替 new ObservableCollection 避免 UI 重建
-                var evaluator = sp.GetRequiredService<IAlertEvaluator>();
-                var alerts = evaluator.Evaluate(Array.Empty<VarianceResult>());
-                Alerts.Clear();
-                foreach (var a in alerts)
-                    Alerts.Add(new AlertItem
-                    {
-                        Severity = a.Severity.ToString(),
-                        Message = a.Message,
-                        TriggeredRule = a.TriggeredRule
-                    });
-                AlertCount = alerts.Count;
-
-                // 同步状态
-                var syncService = sp.GetRequiredService<ISyncService>();
-                var lastSync = syncService.GetLastSyncTime();
-                LastSyncText = lastSync?.ToString("yyyy-MM-dd HH:mm") ?? "从未同步";
-
-                StatusText = $"刷新完成 — {DateTime.Now:HH:mm:ss}";
+                _uiDispatcher.Invoke(() =>
+                {
+                    MaterialCount = materialCount;
+                    ActiveBomCount = materialCount;
+                    Alerts.Clear();
+                    foreach (var a in alerts)
+                        Alerts.Add(a);
+                    AlertCount = alertCount;
+                    LastSyncText = lastSyncText;
+                    StatusText = $"刷新完成 — {DateTime.Now:HH:mm:ss}";
+                });
             }
             catch (Exception ex)
             {
-                StatusText = $"刷新失败: {ex.Message}";
+                _uiDispatcher.Invoke(() => StatusText = $"刷新失败: {ex.Message}");
             }
         }
 
@@ -258,10 +295,9 @@ namespace BomAddIn.Dashboard
         {
             // C-20 fix: 确保属性变更通知始终在 UI 线程触发
             // Task.Run 中的属性更新会跨线程触发 PropertyChanged，导致 WPF 绑定异常
-            var dispatcher = Application.Current?.Dispatcher;
-            if (dispatcher != null && !dispatcher.CheckAccess())
+            if (!_uiDispatcher.CheckAccess())
             {
-                dispatcher.Invoke(() => OnPropertyChanged(name));
+                _uiDispatcher.Invoke(() => OnPropertyChanged(name));
                 return;
             }
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));

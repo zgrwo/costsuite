@@ -37,10 +37,10 @@ namespace BomAddIn.Core.Services
     public interface IBomExcelImporter
     {
         /// <summary>从 DataTable 导入物料数据（自动检测列映射）</summary>
-        ImportResult ImportMaterials(DataTable table, long orgId, UserRole callerRole = UserRole.Admin);
+        ImportResult ImportMaterials(DataTable table, long orgId, UserRole callerRole);
 
         /// <summary>从 DataTable 导入 BOM 结构数据</summary>
-        ImportResult ImportBomStructures(DataTable table, long orgId, UserRole callerRole = UserRole.Admin);
+        ImportResult ImportBomStructures(DataTable table, long orgId, UserRole callerRole);
 
         /// <summary>检测表头映射（中文/英文模糊匹配）</summary>
         Dictionary<string, string> DetectColumnMapping(string[] headers);

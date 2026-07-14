@@ -11,14 +11,17 @@ namespace BomAddIn.Bridge
         // Excel 365 首次支持动态数组的版本号
         private static readonly Version DynamicArrayMinVersion = new Version(16, 0, 12026);
 
-        private readonly Lazy<bool> _isDynamicArraySupported;
+        private static bool? _isDynamicArraySupported;
 
         public VersionAdapter()
         {
-            _isDynamicArraySupported = new Lazy<bool>(DetectDynamicArraySupport);
+            // 在 AutoOpen 中通过 DI 创建实例，此时在 Excel 主线程上，
+            // 直接检测并缓存结果，避免延迟到后台线程访问 COM
+            if (_isDynamicArraySupported == null)
+                _isDynamicArraySupported = DetectDynamicArraySupport();
         }
 
-        public bool IsDynamicArraySupported => _isDynamicArraySupported.Value;
+        public bool IsDynamicArraySupported => _isDynamicArraySupported ?? false;
 
         public string GetArrayFormulaBehavior()
         {

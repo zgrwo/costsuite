@@ -2,6 +2,7 @@ using System;
 using System.Net.Http;
 using System.Net.NetworkInformation;
 using System.Threading.Tasks;
+using BomAddIn.Infrastructure.Config;
 
 namespace BomAddIn.Infrastructure.Network
 {
@@ -15,10 +16,18 @@ namespace BomAddIn.Infrastructure.Network
         private readonly object _probeLock = new();
         private DateTime _lastSuccessfulProbe = DateTime.MinValue;
         private readonly HttpClient _httpClient;
+        private readonly string _probeUrl;
 
-        public NetworkMonitor()
+        public NetworkMonitor() : this(new AppConfigProvider())
+        {
+        }
+
+        public NetworkMonitor(IConfigProvider configProvider)
         {
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            _probeUrl = configProvider.Get("ErpApi:HealthCheckUrl");
+            if (string.IsNullOrWhiteSpace(_probeUrl))
+                _probeUrl = "https://erp.example.com/api/health";
         }
 
         public bool IsNetworkAvailable() =>
@@ -28,8 +37,7 @@ namespace BomAddIn.Infrastructure.Network
         {
             try
             {
-                // TODO: V2.0 — 从 IConfigProvider 注入 URL，避免硬编码
-                var response = await _httpClient.GetAsync("https://erp.example.com/api/health");
+                var response = await _httpClient.GetAsync(_probeUrl);
                 if (response.IsSuccessStatusCode)
                 {
                     lock (_probeLock) { _lastSuccessfulProbe = DateTime.UtcNow; }

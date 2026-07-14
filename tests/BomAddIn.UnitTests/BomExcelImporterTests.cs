@@ -5,6 +5,7 @@ using BomAddIn.Core.Services;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
+using BomAddIn.Infrastructure.Models.Enums;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -96,7 +97,7 @@ public class BomExcelImporterTests
         table.Columns.Add("名称");
         table.Rows.Add("Test");
 
-        var result = _importer.ImportMaterials(table, 1);
+        var result = _importer.ImportMaterials(table, 1, UserRole.Admin);
         result.Success.Should().BeFalse();
         result.Errors.Should().Contain(e => e.Contains("物料编码"));
     }
@@ -109,7 +110,7 @@ public class BomExcelImporterTests
         table.Columns.Add("物料名称");
         table.Rows.Add("", "Test");
 
-        var result = _importer.ImportMaterials(table, 1);
+        var result = _importer.ImportMaterials(table, 1, UserRole.Admin);
         result.Warnings.Should().Contain(w => w.Contains("物料编码为空"));
     }
 
@@ -124,7 +125,7 @@ public class BomExcelImporterTests
         table.Columns.Add("物料名称");
         table.Rows.Add("MAT-001", "Test");
 
-        var result = _importer.ImportMaterials(table, 1);
+        var result = _importer.ImportMaterials(table, 1, UserRole.Admin);
         result.Warnings.Should().Contain(w => w.Contains("已存在"));
     }
 
@@ -142,7 +143,7 @@ public class BomExcelImporterTests
         table.Columns.Add("类别");
         table.Rows.Add("MAT-NEW", "New Material", "Spec-01", "kg", "RawMaterial");
 
-        var result = _importer.ImportMaterials(table, 1);
+        var result = _importer.ImportMaterials(table, 1, UserRole.Admin);
         result.SuccessCount.Should().Be(1);
         _materialRepoMock.Verify(r => r.Add(It.Is<Material>(m => m.Code == "MAT-NEW"),
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -158,7 +159,7 @@ public class BomExcelImporterTests
         table.Columns.Add("数量");
         table.Rows.Add("CHILD", "2");
 
-        var result = _importer.ImportBomStructures(table, 1);
+        var result = _importer.ImportBomStructures(table, 1, UserRole.Admin);
         result.Success.Should().BeFalse();
         result.Errors.Should().Contain(e => e.Contains("父项编码"));
     }
@@ -184,7 +185,7 @@ public class BomExcelImporterTests
         table.Columns.Add("数量");
         table.Rows.Add("PARENT", "CHILD", "3");
 
-        var result = _importer.ImportBomStructures(table, 1);
+        var result = _importer.ImportBomStructures(table, 1, UserRole.Admin);
         result.Errors.Should().Contain(e => e.Contains("父物料"));
     }
 
@@ -205,7 +206,7 @@ public class BomExcelImporterTests
         table.Columns.Add("数量");
         table.Rows.Add("PARENT", "CHILD", "abc");
 
-        var result = _importer.ImportBomStructures(table, 1);
+        var result = _importer.ImportBomStructures(table, 1, UserRole.Admin);
         result.Errors.Should().Contain(e => e.Contains("数量"));
     }
 
@@ -227,7 +228,7 @@ public class BomExcelImporterTests
         table.Columns.Add("位号");
         table.Rows.Add("P1", "C1", "5", "R1");
 
-        var result = _importer.ImportBomStructures(table, 1);
+        var result = _importer.ImportBomStructures(table, 1, UserRole.Admin);
         result.SuccessCount.Should().Be(1);
         _bomNodeRepoMock.Verify(r => r.Add(It.Is<BomNode>(n =>
             n.ParentMaterialId == 10 && n.ChildMaterialId == 20 && n.Quantity == 5),

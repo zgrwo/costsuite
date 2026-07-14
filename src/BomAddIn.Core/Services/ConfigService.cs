@@ -56,17 +56,10 @@ namespace BomAddIn.Core.Services
             value = default;
             LastConversionError = null;
 
-            // M-9: 先检查缓存中是否存在该 key，区分"键不存在"和"转换失败"
-            if (!_cache.Exists(CacheKeyPrefix + key) && _repository.GetByKey(key) == null)
-            {
-                LastConversionError = $"配置键 '{key}' 不存在。";
-                return false;
-            }
-
             var raw = GetValue(key);
             if (string.IsNullOrEmpty(raw))
             {
-                LastConversionError = $"配置键 '{key}' 的值为空。";
+                LastConversionError = $"配置键 '{key}' 不存在或值为空。";
                 return false;
             }
 
@@ -95,7 +88,7 @@ namespace BomAddIn.Core.Services
             return false;
         }
 
-        public void SetValue(string key, string value, string? description = null, UserRole callerRole = UserRole.Admin)
+        public void SetValue(string key, string value, UserRole callerRole, string? description = null)
         {
             _authz.Demand(callerRole, BomOperation.ConfigUpdate);
             var config = new AppConfig

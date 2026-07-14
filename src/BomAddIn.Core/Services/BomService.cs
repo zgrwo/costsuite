@@ -22,6 +22,7 @@ namespace BomAddIn.Core.Services
         private readonly IBomAnalysisProvider _analysisProvider;
         private readonly IAuditService _auditService;
         private readonly ICacheProvider _cache;
+        private readonly IPriceRecordRepository _priceRecordRepo;
         private readonly IDbConnectionFactory _connectionFactory;
         private readonly IAuthorizationService _authz;
 
@@ -32,6 +33,7 @@ namespace BomAddIn.Core.Services
             IBomAnalysisProvider analysisProvider,
             IAuditService auditService,
             ICacheProvider cache,
+            IPriceRecordRepository priceRecordRepo,
             IDbConnectionFactory connectionFactory,
             IAuthorizationService authz)
         {
@@ -41,12 +43,15 @@ namespace BomAddIn.Core.Services
             _analysisProvider = analysisProvider;
             _auditService = auditService;
             _cache = cache;
+            _priceRecordRepo = priceRecordRepo;
             _connectionFactory = connectionFactory;
             _authz = authz;
         }
 
         public List<BomExpandedNode> Expand(string itemCode, DateTime? asOfDate = null)
         {
+            if (itemCode == null) throw new ArgumentNullException(nameof(itemCode));
+
             var date = (asOfDate ?? DateTime.Today).ToString("yyyy-MM-dd");
             var cacheKey = $"bom_expand:{itemCode}:{date}";
 
@@ -78,7 +83,7 @@ namespace BomAddIn.Core.Services
         /// 添加 BOM 节点 — 共享连接+事务保证原子性 (code-review C-13)。
         /// 数据写入成功后清除 BOM 展开缓存。
         /// </summary>
-        public BomNode AddNode(BomNode node, long? userId = null, UserRole callerRole = UserRole.Admin)
+        public BomNode AddNode(BomNode node, UserRole callerRole, long? userId = null)
         {
             _authz.Demand(callerRole, BomOperation.BomCreate);
             using var conn = _connectionFactory.CreateConnection();
@@ -88,7 +93,7 @@ namespace BomAddIn.Core.Services
             {
                 _bomNodeRepository.Add(node, conn, tx);
 
-                TryLogAudit("CREATE", node.Id, null, AuditService.ToJson(node), userId);
+                TryLogAudit(AuditAction.Create, node.Id, null, AuditService.ToJson(node), userId);
 
                 tx.Commit();
                 _cache.RemoveByPrefix("bom_expand:");
@@ -104,7 +109,7 @@ namespace BomAddIn.Core.Services
         /// <summary>
         /// 更新 BOM 节点 — 共享连接+事务+原子版本号 (code-review C-12, C-13)。
         /// </summary>
-        public void UpdateNode(BomNode node, long? userId = null, UserRole callerRole = UserRole.Admin)
+        public void UpdateNode(BomNode node, UserRole callerRole, long? userId = null)
         {
             _authz.Demand(callerRole, BomOperation.BomUpdate);
             using var conn = _connectionFactory.CreateConnection();
@@ -127,7 +132,7 @@ namespace BomAddIn.Core.Services
                     CreatedAt = DateTime.UtcNow
                 });
 
-                TryLogAudit("UPDATE", node.Id,
+                TryLogAudit(AuditAction.Update, node.Id,
                     oldNode != null ? AuditService.ToJson(oldNode) : null,
                     AuditService.ToJson(node), userId);
 
@@ -144,7 +149,7 @@ namespace BomAddIn.Core.Services
         /// <summary>
         /// 删除 BOM 节点 — 共享连接+事务 (code-review C-13)。
         /// </summary>
-        public void DeleteNode(long id, long? userId = null, UserRole callerRole = UserRole.Admin)
+        public void DeleteNode(long id, UserRole callerRole, long? userId = null)
         {
             _authz.Demand(callerRole, BomOperation.BomDelete);
             using var conn = _connectionFactory.CreateConnection();
@@ -154,7 +159,7 @@ namespace BomAddIn.Core.Services
             {
                 var node = _bomNodeRepository.GetById(id);
                 _bomNodeRepository.Delete(id, conn, tx);
-                TryLogAudit("DELETE", id,
+                TryLogAudit(AuditAction.Delete, id,
                     node != null ? AuditService.ToJson(node) : null, null, userId);
 
                 tx.Commit();
@@ -184,21 +189,10 @@ namespace BomAddIn.Core.Services
             if (nodes.Count == 0)
                 return 0;
 
-            // 批量查询所有物料单价（一次 SQL 替代 N 次查询）
+            // 批量查询所有物料单价（通过 IPriceRecordRepository 替代原始 Dapper）
             var materialIds = nodes.Select(n => n.MaterialId).Distinct();
-            var priceRepo = _bomNodeRepository as BomAddIn.Data.Repositories.IPriceRecordRepository;
-            // 通过 connectionFactory 手动获取 priceRepo（避免注入新依赖）
-            using var conn = _connectionFactory.CreateConnection();
-            var prices = conn.Query<PriceRecord>(
-                @"SELECT p.* FROM Prices p
-                  INNER JOIN (
-                      SELECT MaterialId, MAX(EffectiveDate) AS MaxDate
-                      FROM Prices
-                      WHERE MaterialId IN @Ids AND EffectiveDate <= @AsOfDate
-                      GROUP BY MaterialId
-                  ) latest ON p.MaterialId = latest.MaterialId AND p.EffectiveDate = latest.MaxDate",
-                new { Ids = materialIds, AsOfDate = date.ToString("yyyy-MM-dd") });
-            var priceMap = prices.ToDictionary(p => p.MaterialId, p => (double)p.UnitPrice);
+            var priceMap = _priceRecordRepo.GetByMaterialIdsAndDate(materialIds, date)
+                .ToDictionary(p => p.Key, p => (double)p.Value.UnitPrice);
 
             // 预构建 parent→children 索引（O(n)）
             var childrenByParent = new Dictionary<long, List<BomExpandedNode>>();
@@ -220,7 +214,8 @@ namespace BomAddIn.Core.Services
             // ⚠️ G-1 note: Dictionary<BomExpandedNode,double> 依赖引用相等（BomExpandedNode 未重写 Equals）。
             // costs[node] 和 costs[child] 使用来自同一 Expand() 返回列表的同一对象实例 → 安全。
             // 如未来 Expand() 返回新实例（克隆/投影/反序列化），需改用复合键或为 BomExpandedNode 添加 identity 列。
-            var costs = new Dictionary<BomExpandedNode, double>();
+            string NodeKey(BomExpandedNode n) => $"{n.ItemCode}|{n.ParentMaterialId}|{n.Level}|{n.MaterialId}";
+            var costs = new Dictionary<string, double>();
             foreach (var node in nodes.OrderByDescending(n => n.Level))
             {
                 double unitPrice = priceMap.TryGetValue(node.MaterialId, out var p) ? p : 0.0;
@@ -231,17 +226,17 @@ namespace BomAddIn.Core.Services
                 {
                     foreach (var child in children)
                     {
-                        if (costs.TryGetValue(child, out var cc))
+                        if (costs.TryGetValue(NodeKey(child), out var cc))
                             childrenCost += cc;
                     }
                 }
 
-                costs[node] = ownCost + childrenCost;
+                costs[NodeKey(node)] = ownCost + childrenCost;
             }
 
             // 根节点（Level=0）的总成本
             var root = nodes.FirstOrDefault(n => n.Level == 0);
-            if (root != null && costs.TryGetValue(root, out var totalCost))
+            if (root != null && costs.TryGetValue(NodeKey(root), out var totalCost))
                 return Math.Round(totalCost, 2);
 
             // C-2 fix: fallback 只汇总顶层节点（未被任何其他节点作为子节点引用的节点）
@@ -251,13 +246,13 @@ namespace BomAddIn.Core.Services
             double fallback = 0;
             foreach (var n in nodes)
                 if (!childMaterialIds.Contains(n.MaterialId))
-                    if (costs.TryGetValue(n, out var c))
+                    if (costs.TryGetValue(NodeKey(n), out var c))
                         fallback += c;
             return Math.Round(fallback, 2);
         }
 
         // H-3 fix: 提取审计日志 try/catch 辅助方法，消除 3 处重复代码
-        private void TryLogAudit(string action, long? recordId, string? oldValues, string? newValues, long? userId)
+        private void TryLogAudit(AuditAction action, long? recordId, string? oldValues, string? newValues, long? userId)
         {
             try
             {

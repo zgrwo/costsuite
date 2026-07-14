@@ -22,7 +22,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             return conn.Query<BomVersion>(
                 "SELECT * FROM BomVersions WHERE BomId = @BomId ORDER BY VersionNumber DESC",
-                new { BomId = bomId });
+                new { BomId = bomId }).ToList();
         }
 
         public BomVersion? GetById(long id)

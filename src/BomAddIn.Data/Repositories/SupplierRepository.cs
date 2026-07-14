@@ -36,7 +36,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             return conn.Query<Supplier>(
                 "SELECT * FROM Suppliers WHERE OrgId = @OrgId ORDER BY Code",
-                new { OrgId = orgId });
+                new { OrgId = orgId }).ToList();
         }
 
         public void Add(Supplier supplier)

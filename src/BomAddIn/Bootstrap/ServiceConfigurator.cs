@@ -25,9 +25,11 @@ namespace BomAddIn
         public static ServiceProvider Configure()
         {
             // C-18 fix: 注册 Dapper 枚举类型处理器，确保 TEXT 列 ↔ enum 正确映射
-            // SQLite 中 UserRole/VersionState 存储为 TEXT ("Admin", "Draft")，需要显式处理
+            // SQLite 中 enum 值存储为 TEXT ("Admin", "Draft")，需要显式处理
             Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.UserRole>());
             Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.VersionState>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.AuditAction>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.SnapshotType>());
 
             var services = new ServiceCollection();
 

@@ -22,7 +22,7 @@ namespace BomAddIn.Data.Repositories
             return conn.Query<InventoryRecord>(
                 @"SELECT * FROM Inventories
                   WHERE MaterialId = @MaterialId AND WarehouseId = @WarehouseId AND DataVersion = @Version",
-                new { MaterialId = materialId, WarehouseId = warehouseId, Version = dataVersion });
+                new { MaterialId = materialId, WarehouseId = warehouseId, Version = dataVersion }).ToList();
         }
 
         public IEnumerable<InventoryRecord> GetSnapshot(long materialId, DateTime date)

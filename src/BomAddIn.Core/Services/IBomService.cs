@@ -17,13 +17,13 @@ namespace BomAddIn.Core.Services
         IEnumerable<BomNode> GetChildren(long parentMaterialId, DateTime? asOfDate = null);
 
         /// <summary>新增 BOM 节点</summary>
-        BomNode AddNode(BomNode node, long? userId = null, UserRole callerRole = UserRole.Admin);
+        BomNode AddNode(BomNode node, UserRole callerRole, long? userId = null);
 
         /// <summary>更新 BOM 节点</summary>
-        void UpdateNode(BomNode node, long? userId = null, UserRole callerRole = UserRole.Admin);
+        void UpdateNode(BomNode node, UserRole callerRole, long? userId = null);
 
         /// <summary>删除 BOM 节点</summary>
-        void DeleteNode(long id, long? userId = null, UserRole callerRole = UserRole.Admin);
+        void DeleteNode(long id, UserRole callerRole, long? userId = null);
 
         /// <summary>获取 BOM 版本历史</summary>
         IEnumerable<BomVersion> GetVersionHistory(long bomId);

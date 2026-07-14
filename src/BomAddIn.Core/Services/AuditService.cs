@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using BomAddIn.Data.Repositories;
+using BomAddIn.Infrastructure.Models.Enums;
 
 namespace BomAddIn.Core.Services
 {
@@ -19,7 +20,7 @@ namespace BomAddIn.Core.Services
         }
 
         public void Log(
-            string action,
+            AuditAction action,
             string tableName,
             long? recordId = null,
             string? oldValues = null,
@@ -31,7 +32,7 @@ namespace BomAddIn.Core.Services
         }
 
         public void Log(
-            string action,
+            AuditAction action,
             string tableName,
             IDbConnection conn, IDbTransaction tx,
             long? recordId = null,
@@ -44,7 +45,7 @@ namespace BomAddIn.Core.Services
         }
 
         private static Infrastructure.Models.AuditLog BuildLog(
-            string action,
+            AuditAction action,
             string tableName,
             long? recordId,
             string? oldValues,
@@ -65,11 +66,13 @@ namespace BomAddIn.Core.Services
 
         public IEnumerable<Infrastructure.Models.AuditLog> GetTableHistory(string tableName, int limit = 50)
         {
+            if (tableName == null) throw new ArgumentNullException(nameof(tableName));
             return _repo.GetByTable(tableName, DateTime.UtcNow.AddDays(-365), limit);
         }
 
         public IEnumerable<Infrastructure.Models.AuditLog> GetTableHistory(string tableName, long recordId)
         {
+            if (tableName == null) throw new ArgumentNullException(nameof(tableName));
             return _repo.GetByTableAndRecordId(tableName, recordId);
         }
 
@@ -125,7 +128,9 @@ namespace BomAddIn.Core.Services
                     sb.Append('"').Append(dt.ToString("o")).Append('"');
                 else if (value.GetType().IsEnum)
                     sb.Append('"').Append(value.ToString()).Append('"');
-                else if (value is decimal or double or float or int or long or short or byte or bool)
+                else if (value is bool b)
+                    sb.Append(b ? "true" : "false");
+                else if (value is decimal or double or float or int or long or short or byte)
                     sb.Append(Convert.ToString(value, CultureInfo.InvariantCulture) ?? "null");
                 else
                     // 复杂对象：递归序列化（带深度守卫）

@@ -57,7 +57,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             return conn.Query<Material>(
                 "SELECT * FROM Materials WHERE OrgId = @OrgId AND IsActive = 1 ORDER BY Code",
-                new { OrgId = orgId });
+                new { OrgId = orgId }).ToList();
         }
 
         public IEnumerable<Material> Search(long orgId, string? category = null, string? keyword = null)
@@ -78,7 +78,7 @@ namespace BomAddIn.Data.Repositories
                 parameters.Add("Keyword", $"%{keyword}%");
             }
             sql += " ORDER BY Code";
-            return conn.Query<Material>(sql, parameters);
+            return conn.Query<Material>(sql, parameters).ToList();
         }
 
         public void Add(Material material)

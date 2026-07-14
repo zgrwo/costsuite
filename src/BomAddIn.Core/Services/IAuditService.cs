@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Data;
+using BomAddIn.Infrastructure.Models.Enums;
 
 namespace BomAddIn.Core.Services
 {
@@ -8,7 +9,7 @@ namespace BomAddIn.Core.Services
     {
         /// <summary>记录一条操作审计</summary>
         void Log(
-            string action,
+            AuditAction action,
             string tableName,
             long? recordId = null,
             string? oldValues = null,
@@ -17,7 +18,7 @@ namespace BomAddIn.Core.Services
 
         /// <summary>记录一条操作审计（使用共享连接+事务保证原子性）</summary>
         void Log(
-            string action,
+            AuditAction action,
             string tableName,
             IDbConnection conn, IDbTransaction tx,
             long? recordId = null,

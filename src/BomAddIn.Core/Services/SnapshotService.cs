@@ -28,7 +28,7 @@ namespace BomAddIn.Core.Services
             _authz = authz;
         }
 
-        public DataSnapshot CreateSnapshot(string type = "Manual", string? description = null, UserRole callerRole = UserRole.Admin)
+        public DataSnapshot CreateSnapshot(UserRole callerRole, string type = "Manual", string? description = null)
         {
             _authz.Demand(callerRole, BomOperation.BomRead);
             using var conn = _connectionFactory.CreateConnection();
@@ -52,11 +52,11 @@ namespace BomAddIn.Core.Services
 
                 // C-8 fix: 检测截断并记录警告，在快照 description 中标记不完整
                 var truncations = new List<string>();
-                if (materials.Count >= maxRowsPerTable) truncations.Add("Materials");
-                if (bomStructures.Count >= maxRowsPerTable) truncations.Add("BomStructures");
-                if (bomVersions.Count >= maxRowsPerTable) truncations.Add("BomVersions");
-                if (prices.Count >= maxRowsPerTable) truncations.Add("Prices");
-                if (inventories.Count >= maxRowsPerTable) truncations.Add("Inventories");
+                if (materials.Count > maxRowsPerTable) truncations.Add("Materials");
+                if (bomStructures.Count > maxRowsPerTable) truncations.Add("BomStructures");
+                if (bomVersions.Count > maxRowsPerTable) truncations.Add("BomVersions");
+                if (prices.Count > maxRowsPerTable) truncations.Add("Prices");
+                if (inventories.Count > maxRowsPerTable) truncations.Add("Inventories");
 
                 var isTruncated = truncations.Count > 0;
                 if (isTruncated)
@@ -72,7 +72,7 @@ namespace BomAddIn.Core.Services
 
                 var snapshot = new DataSnapshot
                 {
-                    SnapshotType = type,
+                    SnapshotType = Enum.TryParse<SnapshotType>(type, true, out var st) ? st : SnapshotType.Manual,
                     SnapshotData = json,
                     CreatedAt = DateTime.UtcNow,
                     Description = (description ?? $"{type} snapshot at {DateTime.UtcNow:yyyy-MM-dd HH:mm:ss}")
@@ -110,25 +110,23 @@ namespace BomAddIn.Core.Services
             var allTables = new HashSet<string>(tablesA.Keys);
             allTables.UnionWith(tablesB.Keys);
 
-            int totalDiff = 0;
             foreach (var table in allTables)
             {
                 var countA = tablesA.TryGetValue(table, out var ca) ? ca : 0;
                 var countB = tablesB.TryGetValue(table, out var cb) ? cb : 0;
                 var diff = countB - countA;
 
-                if (diff != 0)
-                {
-                    result.ModifiedCounts[table] = diff;
-                    totalDiff += Math.Abs(diff);
-                }
+                if (diff > 0)
+                    result.AddedCounts[table] = diff;
+                else if (diff < 0)
+                    result.RemovedCounts[table] = -diff;
+                else
+                    result.UnchangedCounts[table] = countA;
             }
-
-            result.ModifiedCounts["Summary"] = totalDiff;
             return result;
         }
 
-        public void CleanupOldSnapshots(int retentionDays = 90, UserRole callerRole = UserRole.Admin)
+        public void CleanupOldSnapshots(UserRole callerRole, int retentionDays = 90)
         {
             _authz.Demand(callerRole, BomOperation.UserManage); // 清理快照需要管理员权限
             var cutoff = DateTime.UtcNow.AddDays(-retentionDays);

@@ -1,6 +1,7 @@
 using System;
 using BomAddIn.Bridge;
 using BomAddIn.Core.Services;
+using BomAddIn.Infrastructure.Config;
 using BomAddIn.Infrastructure.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -8,7 +9,7 @@ namespace BomAddIn
 {
     /// <summary>
     /// 启动自检 — 在 AutoOpen 中执行，快速失败。
-    /// 检查项: Excel 主线程确认、版本适配器可用性、预警阈值配置。
+    /// 检查项: Excel 主线程确认、版本适配器可用性、预警阈值配置、ERP 端点有效性。
     /// Sprint 1+ 补充: 数据库连接、SQLite 缓存权限、网络连通性。
     /// </summary>
     public static class StartupValidator
@@ -42,6 +43,24 @@ namespace BomAddIn
                 AppLogger.Error($"AlertEvaluator 阈值配置无效，预警功能将不可用: {ex.Message}",
                     ex, typeof(StartupValidator));
                 // 不阻塞启动——预警功能降级，其他功能正常
+            }
+
+            // 探针 P-0.3: 检查 ERP 端点是否仍为占位符值
+            try
+            {
+                var configProvider = services.GetRequiredService<IConfigProvider>();
+                var erpBaseUrl = configProvider.Get("ErpApi:BaseUrl");
+                if (!string.IsNullOrWhiteSpace(erpBaseUrl) &&
+                    erpBaseUrl.IndexOf("erp.example.com", StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    AppLogger.Fatal(
+                        "ERP 端点仍为占位符值 (erp.example.com)。请通过 AppConfig 表配置实际的 ErpApi:BaseUrl。",
+                        null, typeof(StartupValidator));
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Warn($"检查 ERP 端点配置时失败: {ex.Message}", typeof(StartupValidator));
             }
         }
     }

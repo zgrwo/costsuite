@@ -13,7 +13,7 @@ namespace BomAddIn.Data.Repositories
         void UpdateLoginAttempts(long userId, int attempts, DateTime? lockoutUntil);
         int IncrementLoginAttempts(long userId);
         /// <summary>原子自增失败计数并抢占锁仓（消除 TOCTOU 竞态）。返回更新后的失败次数。</summary>
-        int IncrementAndLockIfNeeded(long userId, int maxAttempts, string lockoutTime);
+        int IncrementAndLockIfNeeded(long userId, int maxAttempts, DateTime? lockoutUntil);
         IEnumerable<User> GetAll();
     }
 }

@@ -194,13 +194,13 @@ namespace BomAddIn.Data.Analysis
                            COUNT(*) AS DataPoints
                     FROM Prices p
                     JOIN Materials m ON p.MaterialId = m.Id
-                    WHERE p.EffectiveDate >= $1 AND p.EffectiveDate <= $2
+                    WHERE date(p.EffectiveDate) >= $1 AND date(p.EffectiveDate) <= $2
                     GROUP BY m.Code, m.Name
                     ORDER BY m.Code
                 ";
-                // B-7 fix: 使用 DuckDB 原生位置参数
-                cmd.Parameters.Add(new DuckDBParameter(from.ToString("yyyy-MM-dd HH:mm:ss")));
-                cmd.Parameters.Add(new DuckDBParameter(to.ToString("yyyy-MM-dd HH:mm:ss")));
+                // B-7 fix: 使用 DuckDB 原生位置参数，通过 date() 函数统一日期比较格式
+                cmd.Parameters.Add(new DuckDBParameter(from.ToString("yyyy-MM-dd")));
+                cmd.Parameters.Add(new DuckDBParameter(to.ToString("yyyy-MM-dd")));
 
                 var dt = new DataTable();
                 using var reader = cmd.ExecuteReader();
@@ -324,7 +324,10 @@ namespace BomAddIn.Data.Analysis
 
         public void Dispose()
         {
-            CloseDuckDb();
+            lock (_lock)
+            {
+                CloseDuckDb();
+            }
         }
     }
 }

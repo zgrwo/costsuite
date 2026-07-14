@@ -145,17 +145,20 @@ public partial class BomTaskPane : UserControl
         }
     }
 
-    private void OnSnapshotClick(object sender, RoutedEventArgs e)
+    private async void OnSnapshotClick(object sender, RoutedEventArgs e)
     {
         btnSnapshot.IsEnabled = false;
         btnSnapshot.Content = "创建中...";
 
         try
         {
-            using var scope = Container.BeginScope();
-            var snapshotService = scope.ServiceProvider.GetRequiredService<ISnapshotService>();
-            var snapshot = snapshotService.CreateSnapshot("Manual",
-                $"UI snapshot at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            var snapshot = await Task.Run(() =>
+            {
+                using var scope = Container.BeginScope();
+                var svc = scope.ServiceProvider.GetRequiredService<ISnapshotService>();
+                return svc.CreateSnapshot(UserRole.Admin, "Manual",
+                    $"UI snapshot at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+            });
 
             txtSnapshotResult.Text = $"快照已创建 (Id={snapshot.Id})\n时间: {snapshot.CreatedAt:yyyy-MM-dd HH:mm:ss}";
         }

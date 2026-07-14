@@ -88,7 +88,7 @@ namespace BomAddIn.Data.Repositories
                     AND EffectiveDate >= @From
                     AND EffectiveDate <= @To
                   ORDER BY EffectiveDate",
-                new { MaterialId = materialId, From = from.ToString("o"), To = to.ToString("o") });
+                new { MaterialId = materialId, From = from.ToString("o"), To = to.ToString("o") }).ToList();
         }
 
         /// <summary>批量获取多个物料的价格历史 — 一次 SQL 替代 N 次查询 (U-2 fix)</summary>

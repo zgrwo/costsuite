@@ -149,7 +149,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(3, VersionState.Draft);
 
-        Action act = () => _service.Reject(3, userId: 102);
+        Action act = () => _service.Reject(3, userId: 102, "Test rejection reason");
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -160,7 +160,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(3, VersionState.Approved);
 
-        Action act = () => _service.Reject(3, userId: 102);
+        Action act = () => _service.Reject(3, userId: 102, "Test rejection reason");
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");

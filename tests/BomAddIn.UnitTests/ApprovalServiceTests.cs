@@ -11,6 +11,11 @@ using Xunit;
 
 namespace BomAddIn.UnitTests;
 
+// 注意：ApprovalServiceTests 与 ApprovalServiceEdgeCaseTests 存在大量 mock 设置重复
+// （IBomVersionRepository、IAuditService、IDbConnectionFactory 等 mock 的初始化）。
+// 如需减少重复，可提取共享基类如 ApprovalServiceTestBase，将通用 setup 放入其中。
+// 当前保留两份独立实现以确保测试隔离性。
+
 [Trait("Category", "Unit")]
 public class ApprovalServiceTests
 {
@@ -37,7 +42,7 @@ public class ApprovalServiceTests
             .Returns((long id, IDbConnection c, IDbTransaction t) => _versionRepoMock.Object.GetById(id));
 
         _auditServiceMock
-            .Setup(a => a.Log(It.IsAny<string>(), It.IsAny<string>(),
+            .Setup(a => a.Log(It.IsAny<AuditAction>(), It.IsAny<string>(),
                 It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>(),
                 It.IsAny<long?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<long?>()))
             .Callback(() => { });
@@ -70,7 +75,7 @@ public class ApprovalServiceTests
         _versionRepoMock.Verify(r => r.UpdateState(2, VersionState.Approved, (long?)100,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
         _auditServiceMock.Verify(a => a.Log(
-            "APPROVE", "BomVersions", 2, null, It.IsAny<string>(), (long?)100), Times.Once);
+            AuditAction.Approve, "BomVersions", 2, null, It.IsAny<string>(), (long?)100), Times.Once);
     }
 
     [Fact]
@@ -168,7 +173,7 @@ public class ApprovalServiceTests
         _service.Approve(10, 42, "LGTM");
 
         _auditServiceMock.Verify(a => a.Log(
-            It.Is<string>(s => s == "APPROVE"),
+            It.Is<AuditAction>(s => s == AuditAction.Approve),
             It.Is<string>(t => t == "BomVersions"),
             It.Is<long>(id => id == 10),
             null,
@@ -185,7 +190,7 @@ public class ApprovalServiceTests
         _service.Reject(11, 42, "Bad data");
 
         _auditServiceMock.Verify(a => a.Log(
-            It.Is<string>(s => s == "REJECT"),
+            It.Is<AuditAction>(s => s == AuditAction.Reject),
             It.Is<string>(t => t == "BomVersions"),
             It.Is<long>(id => id == 11),
             null,

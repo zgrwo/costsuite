@@ -30,6 +30,9 @@ namespace BomAddIn.Core.Services
 
         public AuthResult Authenticate(string username, string password)
         {
+            if (username == null) throw new ArgumentNullException(nameof(username));
+            if (password == null) throw new ArgumentNullException(nameof(password));
+
             var user = _userRepository.GetByUsername(username);
 
             if (user == null)
@@ -58,16 +61,16 @@ namespace BomAddIn.Core.Services
                 return new AuthResult
                 {
                     Success = false,
-                    ErrorMessage = $"账户已锁定。请在 {remaining.Minutes} 分钟后重试。"
+                    ErrorMessage = $"账户已锁定。请在 {(int)remaining.TotalMinutes} 分钟后重试。"
                 };
             }
 
             // 验证密码 — 原子自增+锁仓，消除 TOCTOU 竞态 (code-review C-10)
             if (!_passwordHasher.Verify(password, user.PasswordHash))
             {
-                var lockoutTime = DateTime.UtcNow.Add(LockoutDuration).ToString("o");
+                var lockoutUntil = DateTime.UtcNow.Add(LockoutDuration);
                 var newAttempts = _userRepository.IncrementAndLockIfNeeded(
-                    user.Id, MaxFailedAttempts, lockoutTime);
+                    user.Id, MaxFailedAttempts, lockoutUntil);
 
                 return new AuthResult
                 {

@@ -8,13 +8,13 @@ namespace BomAddIn.Core.Services
     public interface ISnapshotService
     {
         /// <summary>创建快照（Daily/Manual），捕获 5 张核心表的全量数据</summary>
-        DataSnapshot CreateSnapshot(string type = "Manual", string? description = null, UserRole callerRole = UserRole.Admin);
+        DataSnapshot CreateSnapshot(UserRole callerRole, string type = "Manual", string? description = null);
 
         /// <summary>对比两个快照，返回每张表的差异摘要</summary>
         SnapshotComparisonResult Compare(long snapshotIdA, long snapshotIdB);
 
         /// <summary>清理过期快照（默认保留 90 天）</summary>
-        void CleanupOldSnapshots(int retentionDays = 90, UserRole callerRole = UserRole.Admin);
+        void CleanupOldSnapshots(UserRole callerRole, int retentionDays = 90);
 
         /// <summary>获取最近的快照列表</summary>
         IEnumerable<DataSnapshot> GetRecent(string? type = null, int limit = 10);

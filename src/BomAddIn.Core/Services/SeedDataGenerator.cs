@@ -36,23 +36,26 @@ namespace BomAddIn.Core.Services
             return count > 100; // 超过 100 条视为已有种子数据
         }
 
-        public SeedResult Generate(int materialCount = 100000, int bomNodeCount = 500000, int historyMonths = 12, UserRole callerRole = UserRole.Admin)
+        public SeedResult Generate(UserRole callerRole, int materialCount = 100000, int bomNodeCount = 500000, int historyMonths = 12)
         {
             _authz.Demand(callerRole, BomOperation.UserManage); // 种子数据生成仅限管理员
             var result = new SeedResult();
 
             try
             {
-                if (HasSeedData())
-                {
-                    result.Skipped = true;
-                    return result;
-                }
-
                 using var conn = _connectionFactory.CreateConnection();
                 // 禁用外键检查以加速批量插入（种子数据自身保证引用完整性）
                 conn.Execute("PRAGMA foreign_keys = OFF;");
                 using var tx = conn.BeginTransaction();
+
+                // TOCTOU fix: 在事务内检查，消除并发竞态条件
+                var existingCount = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM Materials WHERE IsActive = 1", transaction: tx);
+                if (existingCount > 100)
+                {
+                    tx.Rollback();
+                    result.Skipped = true;
+                    return result;
+                }
 
                 try
                 {
@@ -116,7 +119,7 @@ namespace BomAddIn.Core.Services
 
         private int GenerateBomTree(IDbConnection conn, IDbTransaction tx, int materialCount, int targetNodes)
         {
-            // 为每个物料构建 BOM 树：选择随机父节点和子节点
+            // 为每个物料构建 BOM 树：从已插入节点中选择父节点（Fix: 正确的层级赋值）
             var batchSize = 200;
             var inserted = 0;
             var sb = new StringBuilder();
@@ -126,19 +129,26 @@ namespace BomAddIn.Core.Services
 
             if (materialIds.Count == 0) return 0;
 
-            // 每层约：顶层 20%，二层 25%，三层 25%，四层 20%，五层 10%
-            var levels = new[] { 0.20, 0.25, 0.25, 0.20, 0.10 };
+            const int maxDepth = 5;
+            // 跟踪已作为 BOM 节点插入的物料 ID 及其层级
+            var insertedIds = new List<long> { materialIds[0] };
+            var nodeLevels = new Dictionary<long, int> { [materialIds[0]] = 0 };
 
             for (int i = 0; i < targetNodes; i++)
             {
-                var level = i < targetNodes * 0.2 ? 1 :
-                            i < targetNodes * 0.45 ? 2 :
-                            i < targetNodes * 0.7 ? 3 :
-                            i < targetNodes * 0.9 ? 4 : 5;
+                // 从已插入节点中选父节点
+                var parentIdx = _rng.Next(insertedIds.Count);
+                var parentId = insertedIds[parentIdx];
+                var parentLevel = nodeLevels[parentId];
 
-                var parentIdx = _rng.Next(materialIds.Count);
+                // 选子节点（不能与父节点相同）
                 var childIdx = _rng.Next(materialIds.Count);
-                while (childIdx == parentIdx) childIdx = _rng.Next(materialIds.Count);
+                var childId = materialIds[childIdx];
+                while (childId == parentId && materialIds.Count > 1)
+                    childId = materialIds[_rng.Next(materialIds.Count)];
+
+                // 子节点层级 = 父节点层级 + 1（不超过最大深度）
+                var level = Math.Min(parentLevel + 1, maxDepth);
 
                 var qty = Math.Round(_rng.NextDouble() * 90 + 0.1, 2);
                 var scrapRate = Math.Round(_rng.NextDouble() * 0.05, 4);
@@ -149,7 +159,14 @@ namespace BomAddIn.Core.Services
                 sb.AppendLine(sb.Length == 0
                     ? $"INSERT INTO BomStructures (OrgId, ParentMaterialId, ChildMaterialId, Quantity, Position, ScrapRate, BomViewType, Level, ValidFrom, VersionState, CreatedAt, UpdatedAt) VALUES"
                     : ",");
-                sb.Append($"({orgId},{materialIds[parentIdx]},{materialIds[childIdx]},{qty},'{_rng.Next(1, 100)}',{scrapRate},'{bomType}',{level},'{validFrom:yyyy-MM-dd}','Released',datetime('now'),datetime('now'))");
+                sb.Append($"({orgId},{parentId},{childId},{qty},'{_rng.Next(1, 100)}',{scrapRate},'{bomType}',{level},'{validFrom:yyyy-MM-dd}','Released',datetime('now'),datetime('now'))");
+
+                // 将子节点加入已插入集合，供后续迭代选为父节点
+                if (!nodeLevels.ContainsKey(childId))
+                {
+                    nodeLevels[childId] = level;
+                    insertedIds.Add(childId);
+                }
 
                 if (i % batchSize == 0 || i == targetNodes - 1)
                 {

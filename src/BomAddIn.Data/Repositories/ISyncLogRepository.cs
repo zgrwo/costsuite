@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using BomAddIn.Infrastructure.Models;
 
@@ -13,7 +14,7 @@ namespace BomAddIn.Data.Repositories
         void UpdateLog(long id, string status, int recordsProcessed, string? completedAt = null);
 
         /// <summary>获取最近一次成功同步的时间</summary>
-        string? GetLastSyncCompletedAt();
+        DateTime? GetLastSyncCompletedAt();
 
         /// <summary>获取最近的同步日志</summary>
         IEnumerable<SyncLog> GetRecent(int limit = 10);

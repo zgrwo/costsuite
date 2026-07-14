@@ -1,4 +1,5 @@
 using System;
+using BomAddIn.Infrastructure.Models.Enums;
 
 namespace BomAddIn.Infrastructure.Models
 {
@@ -9,7 +10,7 @@ namespace BomAddIn.Infrastructure.Models
         public DateTime StartedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
         public int RecordsProcessed { get; set; }
-        public string Status { get; set; } = "Pending";  // Pending/Running/Complete/Error
+        public SyncStatus Status { get; set; } = SyncStatus.Pending;
         public string? ErrorMessage { get; set; }
     }
 }

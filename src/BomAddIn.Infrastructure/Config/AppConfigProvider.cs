@@ -68,7 +68,7 @@ namespace BomAddIn.Infrastructure.Config
             }
             catch (Exception ex)
             {
-                AppLogger.Warn($"无法转换配置键 '{key}' 的值 '{value}' 为类型 {typeof(T).Name} — {ex.Message}", typeof(AppConfigProvider));
+                AppLogger.Error($"无法转换配置键 '{key}' 的值 '{value}' 为类型 {typeof(T).Name} — {ex.Message}", ex, typeof(AppConfigProvider));
                 return default;
             }
         }

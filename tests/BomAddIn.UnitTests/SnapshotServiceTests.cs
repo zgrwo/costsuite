@@ -3,6 +3,7 @@ using BomAddIn.Core.Services;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
+using BomAddIn.Infrastructure.Models.Enums;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -35,7 +36,9 @@ public class SnapshotServiceTests
 
         result.SnapshotIdA.Should().Be(1);
         result.SnapshotIdB.Should().Be(2);
-        result.ModifiedCounts["Summary"].Should().Be(0);
+        result.UnchangedCounts["Materials"].Should().Be(1);
+        result.AddedCounts.Should().BeEmpty();
+        result.RemovedCounts.Should().BeEmpty();
     }
 
     [Fact]
@@ -52,8 +55,9 @@ public class SnapshotServiceTests
 
         var result = _service.Compare(1, 2);
 
-        result.ModifiedCounts.Should().ContainKey("Summary");
-        result.ModifiedCounts["Summary"].Should().Be(2); // 3 entries vs 1 entry
+        result.RemovedCounts["Materials"].Should().Be(2); // 3 entries vs 1 entry
+        result.AddedCounts.Should().BeEmpty();
+        result.UnchangedCounts.Should().BeEmpty();
     }
 
     [Fact]
@@ -68,7 +72,7 @@ public class SnapshotServiceTests
     [Fact]
     public void CleanupOldSnapshots_DelegatesToRepository()
     {
-        _service.CleanupOldSnapshots(30);
+        _service.CleanupOldSnapshots(UserRole.Admin, 30);
 
         _snapshotRepoMock.Verify(r => r.DeleteOlderThan(
             It.Is<DateTime>(d => d <= DateTime.UtcNow.AddDays(-30)),

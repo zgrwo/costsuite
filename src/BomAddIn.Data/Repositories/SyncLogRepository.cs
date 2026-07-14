@@ -42,11 +42,12 @@ namespace BomAddIn.Data.Repositories
                 });
         }
 
-        public string? GetLastSyncCompletedAt()
+        public DateTime? GetLastSyncCompletedAt()
         {
             using var conn = _connectionFactory.CreateConnection();
-            return conn.QueryFirstOrDefault<string>(
+            var value = conn.QueryFirstOrDefault<string>(
                 "SELECT CompletedAt FROM SyncLogs WHERE Status = 'Complete' ORDER BY CompletedAt DESC LIMIT 1");
+            return value != null ? DateTime.Parse(value) : (DateTime?)null;
         }
 
         public IEnumerable<SyncLog> GetRecent(int limit = 10)

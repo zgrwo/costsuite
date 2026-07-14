@@ -140,22 +140,14 @@ namespace BomAddIn.Infrastructure.Security
             }
             catch (Exception ex)
             {
-                // C-14 fix: DEK 解密失败时备份旧文件而非直接覆盖，防止历史加密数据永久丢失
-                // DPAPI 可能因密码重置、域变更、配置文件迁移等原因解密失败
-                AppLogger.Error($"DEK 解密失败，备份旧文件后生成新密钥: {ex.Message}",
+                // DPAPI 解密失败时直接抛出异常，防止静默生成新密钥破坏已有加密数据
+                AppLogger.Error($"DEK 解密失败。Windows 用户凭证变更导致加密数据无法读取。请使用备份恢复。",
                     ex, typeof(AesEncryptionProvider));
-                try
-                {
-                    var backupPath = _keyFilePath + $".backup.{DateTime.UtcNow:yyyyMMddHHmmss}";
-                    File.Copy(_keyFilePath, backupPath, overwrite: true);
-                    AppLogger.Info($"旧 DEK 文件已备份至: {backupPath}", typeof(AesEncryptionProvider));
-                }
-                catch (Exception backupEx)
-                {
-                    AppLogger.Error($"DEK 备份失败: {backupEx.Message}", backupEx, typeof(AesEncryptionProvider));
-                }
+                throw new System.Security.Cryptography.CryptographicException(
+                    "DEK 解密失败。Windows 用户凭证变更导致加密数据无法读取。请使用备份恢复。", ex);
             }
 
+            // 仅当 DEK 文件不存在时生成新密钥（首次初始化）
             // 生成新 AES-256 密钥
             using var aes = Aes.Create();
             aes.KeySize = 256;

@@ -7,6 +7,7 @@ using BomAddIn.Data.Caching;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
+using BomAddIn.Infrastructure.Models.Enums;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -25,6 +26,7 @@ public class BomServiceTests
     private readonly Mock<IDbConnection> _connMock = new();
     private readonly Mock<IDbTransaction> _txMock = new();
     private readonly Mock<IAuthorizationService> _authzMock = new();
+    private readonly Mock<IPriceRecordRepository> _priceRepoMock = new();
     private readonly BomService _service;
 
     public BomServiceTests()
@@ -33,7 +35,7 @@ public class BomServiceTests
         _connMock.Setup(c => c.BeginTransaction()).Returns(_txMock.Object);
         _service = new BomService(_nodeRepoMock.Object, _versionRepoMock.Object,
             _materialRepoMock.Object, _analysisMock.Object, _auditMock.Object, _cacheMock.Object,
-            _connFactoryMock.Object, _authzMock.Object);
+            _priceRepoMock.Object, _connFactoryMock.Object, _authzMock.Object);
     }
 
     [Fact]
@@ -65,10 +67,10 @@ public class BomServiceTests
     public void AddNode_LogsAudit()
     {
         var node = new BomNode { Id = 0, OrgId = 1, Quantity = 3 };
-        _service.AddNode(node, userId: 42);
+        _service.AddNode(node, UserRole.Admin, userId: 42);
 
         _nodeRepoMock.Verify(r => r.Add(node, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
-        _auditMock.Verify(a => a.Log("CREATE", "BomStructures", It.IsAny<long>(),
+        _auditMock.Verify(a => a.Log(AuditAction.Create, "BomStructures", It.IsAny<long>(),
             null, It.IsAny<string>(), (long?)42), Times.Once);
     }
 
@@ -79,10 +81,10 @@ public class BomServiceTests
         var newNode = new BomNode { Id = 10, Quantity = 8 };
         _nodeRepoMock.Setup(r => r.GetById(10)).Returns(oldNode);
 
-        _service.UpdateNode(newNode, userId: 1);
+        _service.UpdateNode(newNode, UserRole.Admin, userId: 1);
 
         _nodeRepoMock.Verify(r => r.Update(newNode, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
-        _auditMock.Verify(a => a.Log("UPDATE", "BomStructures", (long?)10,
+        _auditMock.Verify(a => a.Log(AuditAction.Update, "BomStructures", (long?)10,
             It.IsNotNull<string>(), It.IsNotNull<string>(), (long?)1), Times.Once);
     }
 
@@ -92,10 +94,10 @@ public class BomServiceTests
         var node = new BomNode { Id = 20, Quantity = 1 };
         _nodeRepoMock.Setup(r => r.GetById(20)).Returns(node);
 
-        _service.DeleteNode(20, userId: 99);
+        _service.DeleteNode(20, UserRole.Admin, userId: 99);
 
         _nodeRepoMock.Verify(r => r.Delete(20, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
-        _auditMock.Verify(a => a.Log("DELETE", "BomStructures", (long?)20,
+        _auditMock.Verify(a => a.Log(AuditAction.Delete, "BomStructures", (long?)20,
             It.IsNotNull<string>(), null, (long?)99), Times.Once);
     }
 

@@ -16,7 +16,7 @@ namespace BomAddIn.Core.Services
         /// <param name="historyMonths">价格/库存历史月份数</param>
         /// <param name="callerRole">调用者角色，仅限 Admin</param>
         /// <returns>实际生成的行数统计</returns>
-        SeedResult Generate(int materialCount = 10000, int bomNodeCount = 50000, int historyMonths = 12, UserRole callerRole = UserRole.Admin);
+        SeedResult Generate(UserRole callerRole, int materialCount = 10000, int bomNodeCount = 50000, int historyMonths = 12);
     }
 
     public class SeedResult

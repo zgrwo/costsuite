@@ -50,9 +50,7 @@ namespace BomAddIn.UDF
         [Obsolete("使用 ResolveWithScope&lt;T&gt;() 或 BeginScope() 代替。原方法在返回前释放 scope，导致服务不可用。")]
         public static T Resolve<T>() where T : class
         {
-            var (service, scope) = ResolveWithScope<T>();
-            scope.Dispose();
-            return service;
+            throw new NotSupportedException("Use ResolveWithScope<T>() or BeginScope() instead.");
         }
     }
 }

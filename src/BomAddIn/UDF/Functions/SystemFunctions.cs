@@ -33,8 +33,9 @@ namespace BomAddIn.UDF.Functions
 
                 return $"Synced {lastSync:yyyy-MM-dd HH:mm}";
             }
-            catch (Exception)
+            catch (Exception ex)
             {
+                BomAddIn.Infrastructure.Logging.AppLogger.Warn($"SYNCSTATUS 查询失败: {ex.Message}", typeof(SystemFunctions));
                 return ExcelError.ExcelErrorValue;
             }
         }

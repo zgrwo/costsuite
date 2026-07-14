@@ -16,7 +16,7 @@ namespace BomAddIn.Core.Services
         bool TryGetValue<T>(string key, out T? value);
 
         /// <summary>设置配置值（upsert），自动刷新缓存</summary>
-        void SetValue(string key, string value, string? description = null, UserRole callerRole = UserRole.Admin);
+        void SetValue(string key, string value, UserRole callerRole, string? description = null);
 
         /// <summary>获取全部配置项</summary>
         IEnumerable<KeyValuePair<string, string>> GetAll();

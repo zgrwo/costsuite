@@ -62,12 +62,12 @@ public class AuthServiceTests
     {
         var user = CreateUser();
         _userRepoMock.Setup(r => r.GetByUsername("testuser")).Returns(user);
-        _userRepoMock.Setup(r => r.IncrementAndLockIfNeeded(1, 5, It.IsAny<string>())).Returns(1);
+        _userRepoMock.Setup(r => r.IncrementAndLockIfNeeded(1, 5, It.IsAny<DateTime?>())).Returns(1);
         _hasherMock.Setup(h => h.Verify("wrong", "hashed_pw")).Returns(false);
 
         _authService.Authenticate("testuser", "wrong");
 
-        _userRepoMock.Verify(r => r.IncrementAndLockIfNeeded(1, 5, It.IsAny<string>()), Times.Once);
+        _userRepoMock.Verify(r => r.IncrementAndLockIfNeeded(1, 5, It.IsAny<DateTime?>()), Times.Once);
     }
 
     [Fact]
@@ -76,7 +76,7 @@ public class AuthServiceTests
         var user = CreateUser();
         user.FailedLoginAttempts = 4;
         _userRepoMock.Setup(r => r.GetByUsername("testuser")).Returns(user);
-        _userRepoMock.Setup(r => r.IncrementAndLockIfNeeded(1, 5, It.IsAny<string>())).Returns(5);
+        _userRepoMock.Setup(r => r.IncrementAndLockIfNeeded(1, 5, It.IsAny<DateTime?>())).Returns(5);
         _hasherMock.Setup(h => h.Verify("wrong", "hashed_pw")).Returns(false);
 
         var result = _authService.Authenticate("testuser", "wrong");

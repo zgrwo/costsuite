@@ -124,7 +124,7 @@ namespace BomAddIn.Core.Services
                 }
 
                 // 2. 记录 SyncLog 开始
-                var syncLogId = _syncLogRepo.WriteLog("Full", "Running", result.StartedAt.ToString("o"));
+                var syncLogId = _syncLogRepo.WriteLog("Full", SyncStatus.Running.ToString(), result.StartedAt.ToString("o"));
 
                 // 3. 并行拉取（Polly 指数退避 + 抖动 + 3 次重试）
                 //     每个任务独立 try/catch，一个表失败不影响其他表继续
@@ -135,15 +135,9 @@ namespace BomAddIn.Core.Services
                 var ordersTask = RetryPolicy.ExecuteAsync(() => _erpAdapter.PullOrdersAsync(since));
                 var capacitiesTask = RetryPolicy.ExecuteAsync(() => _erpAdapter.PullCapacitiesAsync(since));
 
-                // B-3 fix: 用 try-catch 包裹 WhenAll，使 IsFaulted 检查可达
-                try
-                {
-                    await Task.WhenAll(materialsTask, pricesTask, inventoriesTask, ordersTask, capacitiesTask);
-                }
-                catch (AggregateException)
-                {
-                    // 异常由下方 IsFaulted 检查处理——不在此处提前返回
-                }
+                // await Task.WhenAll unwraps AggregateException internally;
+                // individual task faults are inspected via IsFaulted below.
+                await Task.WhenAll(materialsTask, pricesTask, inventoriesTask, ordersTask, capacitiesTask);
 
                 // C-16: 检查是否有任何任务失败 — 如果有，全部回滚，不写入任何数据
                 var errors = new List<string>();
@@ -163,7 +157,7 @@ namespace BomAddIn.Core.Services
                 {
                     result.CompletedAt = DateTime.UtcNow;
                     result.ErrorMessage = $"同步失败 ({errors.Count}/5): " + string.Join("; ", errors);
-                    _syncLogRepo.UpdateLog(syncLogId, "Failed", 0);
+                    _syncLogRepo.UpdateLog(syncLogId, SyncStatus.Failed.ToString(), 0);
                     return result;
                 }
 
@@ -211,16 +205,39 @@ namespace BomAddIn.Core.Services
                 result.TotalRecords = total;
                 result.Success = true;
 
-                _syncLogRepo.UpdateLog(syncLogId, "Complete", total);
+                _syncLogRepo.UpdateLog(syncLogId, SyncStatus.Complete.ToString(), total);
 
                 // R2-14: 同步完成后重建 DuckDB 内存表，确保后续 BOM 展开使用最新数据
-                try
+                // 加入重试循环（3 次，间隔 100ms），降低瞬时失败对同步的影响
+                const int duckDbMaxRetries = 3;
+                const int duckDbRetryDelayMs = 100;
+                bool duckDbLoaded = false;
+
+                for (int retry = 0; retry < duckDbMaxRetries; retry++)
                 {
-                    using var sqliteConn = _connectionFactory.CreateConnection();
-                    sqliteConn.Open();
-                    _analysisProvider.LoadFromSqlite(sqliteConn);
+                    try
+                    {
+                        using var sqliteConn = _connectionFactory.CreateConnection();
+                        sqliteConn.Open();
+                        _analysisProvider.LoadFromSqlite(sqliteConn);
+                        duckDbLoaded = true;
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (retry < duckDbMaxRetries - 1)
+                        {
+                            AppLogger.Warn($"DuckDB 刷新重试 ({retry + 1}/{duckDbMaxRetries}): {ex.Message}", typeof(SyncService));
+                            Thread.Sleep(duckDbRetryDelayMs);
+                        }
+                        else
+                        {
+                            AppLogger.Warn($"DuckDB 刷新失败（{duckDbMaxRetries} 次重试后）: {ex.Message}", typeof(SyncService));
+                        }
+                    }
                 }
-                catch
+
+                if (!duckDbLoaded)
                 {
                     // DuckDB 刷新失败不阻碍同步结果
                     AppLogger.Warn("DuckDB 刷新失败，将在下次 BOM 查询时触发懒加载。", typeof(SyncService));
@@ -237,8 +254,7 @@ namespace BomAddIn.Core.Services
 
         public DateTime? GetLastSyncTime()
         {
-            var lastSync = _syncLogRepo.GetLastSyncCompletedAt();
-            return lastSync != null ? DateTime.Parse(lastSync) : (DateTime?)null;
+            return _syncLogRepo.GetLastSyncCompletedAt();
         }
 
         // WriteSyncLog 和 UpdateSyncLog 已委托给 ISyncLogRepository (code-review C-4)

@@ -1,4 +1,5 @@
 using System;
+using BomAddIn.Infrastructure.Models.Enums;
 
 namespace BomAddIn.Infrastructure.Models
 {
@@ -6,7 +7,7 @@ namespace BomAddIn.Infrastructure.Models
     {
         public long Id { get; set; }
         public long? UserId { get; set; }
-        public string Action { get; set; } = string.Empty;  // CREATE/UPDATE/DELETE
+        public AuditAction Action { get; set; }
         public string TableName { get; set; } = string.Empty;
         public long? RecordId { get; set; }
         public string? OldValues { get; set; }   // JSON
