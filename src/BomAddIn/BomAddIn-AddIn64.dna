@@ -1,27 +1,32 @@
 <DnaLibrary Name="BomAddIn" RuntimeVersion="v4.0">
-  <!-- 项目程序集 -->
-  <ExternalLibrary Path="BomAddIn.dll" Pack="true" />
-  <ExternalLibrary Path="BomAddIn.Core.dll" Pack="true" />
-  <ExternalLibrary Path="BomAddIn.Data.dll" Pack="true" />
-  <ExternalLibrary Path="BomAddIn.Infrastructure.dll" Pack="true" />
-  <!-- NuGet 依赖 -->
-  <ExternalLibrary Path="Dapper.dll" Pack="true" />
-  <ExternalLibrary Path="System.Data.SQLite.dll" Pack="true" />
-  <ExternalLibrary Path="NLog.dll" Pack="true" />
-  <ExternalLibrary Path="Microsoft.Extensions.DependencyInjection.dll" Pack="true" />
-  <ExternalLibrary Path="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Pack="true" />
-  <ExternalLibrary Path="BCrypt.Net-Next.dll" Pack="true" />
-  <ExternalLibrary Path="Polly.Core.dll" Pack="true" />
-  <ExternalLibrary Path="Polly.dll" Pack="true" />
-  <ExternalLibrary Path="DuckDB.NET.Data.dll" Pack="true" />
-  <ExternalLibrary Path="DuckDB.NET.Bindings.dll" Pack="true" />
-  <ExternalLibrary Path="dbup-core.dll" Pack="true" />
-  <ExternalLibrary Path="dbup-sqlite.dll" Pack="true" />
-  <ExternalLibrary Path="ExcelDataReader.dll" Pack="true" />
-  <ExternalLibrary Path="ExcelDataReader.DataSet.dll" Pack="true" />
-  <!-- 原生依赖 -->
-  <!-- ⚠️ duckdb.dll 需手动部署: 不同平台（x86/x64/ARM64）使用对应二进制文件，构建脚本需确保正确的平台版本被复制到输出目录 -->
-  <ExternalLibrary Path="duckdb.dll" Pack="true" />
-  <ExternalLibrary Path="x64\SQLite.Interop.dll" Pack="true" />
-  <Ribbon LoadFromCom="true" />
+  <ExternalLibrary Path="BomAddIn.dll" Pack="true" ExplicitExports="true" />
+  <ExternalLibrary Path="BomAddIn.Core.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="BomAddIn.Data.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="BomAddIn.Infrastructure.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.Data.SQLite.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="Dapper.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="NLog.dll" Pack="true" ExplicitExports="true" />
+  <ExternalLibrary Path="BCrypt.Net-Next.dll" Pack="true" ExplicitExports="true" />
+  <ExternalLibrary Path="System.Security.Cryptography.ProtectedData.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="dbup-core.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="dbup-sqlite.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="Microsoft.Extensions.DependencyInjection.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.Memory.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.Buffers.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.Runtime.CompilerServices.Unsafe.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.Threading.Tasks.Extensions.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.ValueTuple.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.Numerics.Vectors.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="System.ComponentModel.Annotations.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="Microsoft.Bcl.AsyncInterfaces.dll" Pack="true" ExplicitExports="false" />
+  <ExternalLibrary Path="Microsoft.Bcl.TimeProvider.dll" Pack="true" ExplicitExports="false" />
+  <Reference Path="DuckDB.NET.Data.dll" Pack="true" />
+  <Reference Path="DuckDB.NET.Bindings.dll" Pack="true" />
+  <Reference Path="Polly.Core.dll" Pack="true" />
+  <Reference Path="Polly.dll" Pack="true" />
+  <Reference Path="ExcelDataReader.dll" Pack="true" />
+  <Reference Path="ExcelDataReader.DataSet.dll" Pack="true" />
+  <Reference Path="duckdb.dll" Pack="false" />
+  <Reference Path="x64\SQLite.Interop.dll" Pack="false" />
 </DnaLibrary>

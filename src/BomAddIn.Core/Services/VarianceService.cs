@@ -28,6 +28,9 @@ namespace BomAddIn.Core.Services
             List<BomExpandedNode> bomVersionA, DateTime dateA,
             List<BomExpandedNode> bomVersionB, DateTime dateB)
         {
+            if (bomVersionA == null) throw new ArgumentNullException(nameof(bomVersionA));
+            if (bomVersionB == null) throw new ArgumentNullException(nameof(bomVersionB));
+
             var result = new VarianceAnalysisResult
             {
                 AnalysisTime = DateTime.UtcNow

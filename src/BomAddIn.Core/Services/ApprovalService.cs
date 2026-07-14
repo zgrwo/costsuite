@@ -29,21 +29,26 @@ namespace BomAddIn.Core.Services
                 { VersionState.Obsolete,       new HashSet<VersionState>() } // 终态
             };
 
+        private readonly IAuthorizationService _authz;
+
         public ApprovalService(IBomVersionRepository versionRepo, IAuditService auditService,
-            IDbConnectionFactory connectionFactory)
+            IDbConnectionFactory connectionFactory, IAuthorizationService authz)
         {
             _versionRepo = versionRepo;
             _auditService = auditService;
             _connectionFactory = connectionFactory;
+            _authz = authz;
         }
 
-        public BomVersion SubmitForReview(long versionId, long? userId = null)
+        public BomVersion SubmitForReview(long versionId, UserRole callerRole, long? userId = null)
         {
+            _authz.Demand(callerRole, BomOperation.BomApprove);
             return Transition(versionId, VersionState.PendingReview, userId);
         }
 
-        public BomVersion Approve(long versionId, long userId, string? comment = null)
+        public BomVersion Approve(long versionId, long userId, UserRole callerRole, string? comment = null)
         {
+            _authz.Demand(callerRole, BomOperation.BomApprove);
             // H-17: 验证审批人ID有效
             if (userId <= 0)
                 throw new ArgumentException("审批人 ID 不能为空或无效。", nameof(userId));
@@ -60,8 +65,9 @@ namespace BomAddIn.Core.Services
             return result;
         }
 
-        public BomVersion Reject(long versionId, long userId, string comment)
+        public BomVersion Reject(long versionId, long userId, UserRole callerRole, string comment)
         {
+            _authz.Demand(callerRole, BomOperation.BomReject);
             if (userId <= 0)
                 throw new ArgumentException("审批人 ID 不能为空或无效。", nameof(userId));
             if (string.IsNullOrWhiteSpace(comment))
@@ -73,18 +79,21 @@ namespace BomAddIn.Core.Services
             return version;
         }
 
-        public BomVersion Resubmit(long versionId, long? userId = null)
+        public BomVersion Resubmit(long versionId, UserRole callerRole, long? userId = null)
         {
+            _authz.Demand(callerRole, BomOperation.BomApprove);
             return Transition(versionId, VersionState.Draft, userId);
         }
 
-        public BomVersion Release(long versionId, long? userId = null)
+        public BomVersion Release(long versionId, UserRole callerRole, long? userId = null)
         {
+            _authz.Demand(callerRole, BomOperation.BomRelease);
             return Transition(versionId, VersionState.Released, userId);
         }
 
-        public BomVersion Obsolete(long versionId, long? userId = null)
+        public BomVersion Obsolete(long versionId, UserRole callerRole, long? userId = null)
         {
+            _authz.Demand(callerRole, BomOperation.BomObsolete);
             return Transition(versionId, VersionState.Obsolete, userId);
         }
 

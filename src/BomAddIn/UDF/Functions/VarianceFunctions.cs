@@ -49,10 +49,7 @@ namespace BomAddIn.UDF.Functions
                     .ToList();
 
                 if (allVariances.Count == 0)
-                {
-                    // 返回单行: 无变化
-                    return new object[,] { { "No Changes", "", "", "", "" } };
-                }
+                    return ExcelError.ExcelErrorNA;
 
                 var headers = new[] { "NodeCode", "ChangeType", "Dimension", "OldValue", "NewValue" };
                 return UdfParameterParser.ToRectangularArray(allVariances, v => new object[]
@@ -129,7 +126,7 @@ namespace BomAddIn.UDF.Functions
                 var alerts = evaluator.Evaluate(allVariances);
 
                 if (alerts.Count == 0)
-                    return "No alerts";
+                    return ExcelError.ExcelErrorNA;
 
                 var headers = new[] { "Severity", "Message", "Rule", "NodeCode" };
                 return UdfParameterParser.ToRectangularArray(alerts, a => new object[]

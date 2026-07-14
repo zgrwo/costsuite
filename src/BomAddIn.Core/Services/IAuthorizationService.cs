@@ -31,7 +31,13 @@ namespace BomAddIn.Core.Services
         UserManage,
 
         // Sync
-        SyncTrigger
+        SyncTrigger,
+
+        // Approval
+        BomApprove,
+        BomReject,
+        BomRelease,
+        BomObsolete
     }
 
     /// <summary>RBAC 授权服务接口</summary>

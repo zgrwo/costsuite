@@ -240,11 +240,6 @@ namespace BomAddIn.Core.Services
                         if (parent == null) { result.Errors.Add($"第 {rowNum} 行: 父物料 '{parentCode}' 不存在。"); continue; }
                         if (child == null) { result.Errors.Add($"第 {rowNum} 行: 子物料 '{childCode}' 不存在。"); continue; }
 
-                        if (!materialLookup.ContainsKey(parentCode))
-                            materialLookup[parentCode] = parent;
-                        if (!materialLookup.ContainsKey(childCode))
-                            materialLookup[childCode] = child;
-
                         var node = new BomNode
                         {
                             OrgId = orgId,
@@ -252,6 +247,7 @@ namespace BomAddIn.Core.Services
                             ChildMaterialId = child.Id,
                             Quantity = qty,
                             Position = GetCell(row, mapping, "Position", ""),
+                            ScrapRate = double.TryParse(GetCell(row, mapping, "ScrapRate", "0"), out var sr) && sr >= 0 && sr <= 1 ? sr : 0,
                             Level = int.TryParse(GetCell(row, mapping, "Level", "0"), out var l) ? l : 0,
                             ValidFrom = DateTime.UtcNow,
                             ValidTo = null,

@@ -95,7 +95,7 @@ public class ThreadSafetyTests
     [Fact]
     public async Task NetworkMonitor_ConcurrentProbe_NoExceptions()
     {
-        using var monitor = new NetworkMonitor();
+        using var monitor = new NetworkMonitor(new BomAddIn.Infrastructure.Config.AppConfigProvider());
         var tasks = new List<Task<bool>>();
 
         for (int i = 0; i < 10; i++)
@@ -125,6 +125,36 @@ public class ThreadSafetyTests
         var result = dispatcher.RunOnExcelThread(() => 42);
 
         Assert.Equal(42, result);
+    }
+
+    // ── H-12 fix: ExcelThreadDispatcher 跨线程路径回归测试 ──
+
+    [Fact]
+    public async Task ExcelThreadDispatcher_IsMainThread_FromBackgroundTask_ReturnsFalse()
+    {
+        ExcelThreadDispatcher.Initialize();
+        var dispatcher = new ExcelThreadDispatcher();
+
+        var isMainFromBg = await Task.Run(() => dispatcher.IsExcelMainThread);
+
+        Assert.False(isMainFromBg, "从后台线程调用 IsExcelMainThread 应返回 false");
+    }
+
+    // ── H-5 fix: BomAnalysisProvider 并发安全回归测试 ──
+
+    [Fact]
+    public void ConcurrentDictionary_ConcurrentAdds_NoDataLoss()
+    {
+        var dict = new ConcurrentDictionary<int, int>();
+        var options = new ParallelOptions { MaxDegreeOfParallelism = 4 };
+        const int count = 1000;
+
+        Parallel.For(0, count, options, i =>
+        {
+            dict.TryAdd(i, i);
+        });
+
+        Assert.Equal(count, dict.Count);
     }
 
     // ── Helpers ──

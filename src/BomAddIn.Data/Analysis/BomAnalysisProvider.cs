@@ -69,12 +69,25 @@ namespace BomAddIn.Data.Analysis
                 cmd.ExecuteNonQuery();
 
                 // 从 SQLite 加载到 DuckDB（批量模式：每批 200 行）
-                LoadTableBatched(sqliteConn, "Materials",
-                    "SELECT Id, OrgId, Code, Name, Spec, Unit, Category, IsActive FROM Materials WHERE IsActive = 1", 10);
-                LoadTableBatched(sqliteConn, "BomNodes",
-                    "SELECT Id, OrgId, ParentMaterialId, ChildMaterialId, Quantity, Position, ScrapRate, BomViewType, Level, ValidFrom, ValidTo, VersionState FROM BomStructures", 14);
-                LoadTableBatched(sqliteConn, "Prices",
-                    "SELECT Id, OrgId, MaterialId, SupplierId, UnitPrice, Currency, DataVersion, EffectiveDate FROM Prices", 9);
+                try
+                {
+                    LoadTableBatched(sqliteConn, "Materials",
+                        "SELECT Id, OrgId, Code, Name, Spec, Unit, Category, IsActive FROM Materials WHERE IsActive = 1");
+                    LoadTableBatched(sqliteConn, "BomNodes",
+                        "SELECT Id, OrgId, ParentMaterialId, ChildMaterialId, Quantity, Position, ScrapRate, BomViewType, Level, ValidFrom, ValidTo, VersionState FROM BomStructures");
+                    LoadTableBatched(sqliteConn, "Prices",
+                        "SELECT Id, OrgId, MaterialId, SupplierId, UnitPrice, Currency, DataVersion, EffectiveDate FROM Prices");
+                }
+                catch
+                {
+                    // 加载失败时清理连接，避免泄漏
+                    oldDb?.Close();
+                    oldDb?.Dispose();
+                    _duckDb?.Close();
+                    _duckDb?.Dispose();
+                    _duckDb = oldDb; // 恢复旧连接（如果存在）
+                    throw;
+                }
 
                 // 创建 DuckDB 内存索引加速 CTE 递归
                 using var indexCmd = newDb.CreateCommand();
@@ -213,7 +226,7 @@ namespace BomAddIn.Data.Analysis
         /// 批量加载：从 SQLite 读取数据，按批次（200行/批）INSERT 到 DuckDB。
         /// 比逐行插入减少 ~200x 次 RTT，显著降低加载延迟。
         /// </summary>
-        private void LoadTableBatched(IDbConnection sqliteConn, string table, string sql, int columnCount)
+        private void LoadTableBatched(IDbConnection sqliteConn, string table, string sql)
         {
             using var sqliteCmd = sqliteConn.CreateCommand();
             sqliteCmd.CommandText = sql;

@@ -11,6 +11,7 @@ public class PriceRecordRepositoryTests : IClassFixture<SqliteTestFixture>
 {
     private readonly SqliteTestFixture _fixture;
     private readonly PriceRecordRepository _repo;
+    // Interlocked.Increment ensures thread-safety even with xUnit parallel execution
     private static int _counter;
 
     public PriceRecordRepositoryTests(SqliteTestFixture fixture)

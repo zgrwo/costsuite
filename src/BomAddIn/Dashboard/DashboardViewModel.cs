@@ -10,6 +10,7 @@ using System.Windows.Input;
 using BomAddIn.Core.Models;
 using BomAddIn.Core.Services;
 using BomAddIn.Infrastructure.Models.Enums;
+using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.UDF;
@@ -36,7 +37,7 @@ namespace BomAddIn.Dashboard
             _uiDispatcher = Application.Current?.Dispatcher ?? System.Windows.Threading.Dispatcher.CurrentDispatcher;
 
             // 命令
-            RefreshCommand = new RelayCommand(_ => RefreshAll());
+            RefreshCommand = new RelayCommand(async _ => await RefreshAll());
             ExpandBomCommand = new RelayCommand(async _ => await ExpandBomAsync());
             SyncNowCommand = new RelayCommand(async _ => await SyncNowAsync());
 
@@ -49,17 +50,25 @@ namespace BomAddIn.Dashboard
         public async Task InitializeAsync()
         {
             StatusText = "加载中...";
-            var (alertCount, materialCount, lastSyncText, alerts) = await Task.Run(() => LoadData());
-            _uiDispatcher.Invoke(() =>
+            try
             {
-                MaterialCount = materialCount;
-                ActiveBomCount = materialCount;
-                Alerts.Clear();
-                foreach (var a in alerts) Alerts.Add(a);
-                AlertCount = alertCount;
-                LastSyncText = lastSyncText;
-                StatusText = $"刷新完成 — {DateTime.Now:HH:mm:ss}";
-            });
+                var (alertCount, materialCount, lastSyncText, alerts) = await Task.Run(() => LoadData());
+                _uiDispatcher.Invoke(() =>
+                {
+                    MaterialCount = materialCount;
+                    ActiveBomCount = materialCount;
+                    Alerts.Clear();
+                    foreach (var a in alerts) Alerts.Add(a);
+                    AlertCount = alertCount;
+                    LastSyncText = lastSyncText;
+                    StatusText = $"刷新完成 — {DateTime.Now:HH:mm:ss}";
+                });
+            }
+            catch (Exception ex)
+            {
+                _uiDispatcher.Invoke(() => StatusText = $"加载失败: {ex.Message}");
+                AppLogger.Warn($"Dashboard 初始化失败: {ex.Message}", typeof(DashboardViewModel));
+            }
         }
 
         #region Properties
@@ -161,13 +170,13 @@ namespace BomAddIn.Dashboard
             return (alerts.Count, materialCount, lastSyncText, alertItems);
         }
 
-        public void RefreshAll()
+        public async Task RefreshAll()
         {
             _uiDispatcher.Invoke(() => StatusText = "刷新中...");
 
             try
             {
-                var (alertCount, materialCount, lastSyncText, alerts) = LoadData();
+                var (alertCount, materialCount, lastSyncText, alerts) = await Task.Run(() => LoadData());
 
                 _uiDispatcher.Invoke(() =>
                 {

@@ -48,7 +48,7 @@ public class ApprovalServiceTests
             .Callback(() => { });
 
         _service = new ApprovalService(_versionRepoMock.Object, _auditServiceMock.Object,
-            _connectionFactoryMock.Object);
+            _connectionFactoryMock.Object, Mock.Of<IAuthorizationService>());
     }
 
     [Fact]
@@ -57,7 +57,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 1, State = VersionState.Draft };
         _versionRepoMock.Setup(r => r.GetById(1)).Returns(version);
 
-        var result = _service.SubmitForReview(1, null);
+        var result = _service.SubmitForReview(1, UserRole.Admin, null);
 
         _versionRepoMock.Verify(r => r.UpdateState(1, VersionState.PendingReview, null,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -70,7 +70,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 2, State = VersionState.PendingReview };
         _versionRepoMock.Setup(r => r.GetById(2)).Returns(version);
 
-        var result = _service.Approve(2, 100);
+        var result = _service.Approve(2, 100, UserRole.Admin);
 
         _versionRepoMock.Verify(r => r.UpdateState(2, VersionState.Approved, (long?)100,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -84,7 +84,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 3, State = VersionState.PendingReview };
         _versionRepoMock.Setup(r => r.GetById(3)).Returns(version);
 
-        var result = _service.Reject(3, 200, "Needs revision");
+        var result = _service.Reject(3, 200, UserRole.Admin, "Needs revision");
 
         _versionRepoMock.Verify(r => r.UpdateState(3, VersionState.Rejected, (long?)200,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -96,7 +96,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 4, State = VersionState.Approved };
         _versionRepoMock.Setup(r => r.GetById(4)).Returns(version);
 
-        var result = _service.Release(4, null);
+        var result = _service.Release(4, UserRole.Admin, null);
 
         _versionRepoMock.Verify(r => r.UpdateState(4, VersionState.Released, null,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -108,7 +108,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 5, State = VersionState.Released };
         _versionRepoMock.Setup(r => r.GetById(5)).Returns(version);
 
-        var result = _service.Obsolete(5, null);
+        var result = _service.Obsolete(5, UserRole.Admin, null);
 
         _versionRepoMock.Verify(r => r.UpdateState(5, VersionState.Obsolete, null,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -130,7 +130,7 @@ public class ApprovalServiceTests
     {
         _versionRepoMock.Setup(r => r.GetById(999)).Returns((BomVersion?)null);
 
-        Action act = () => _service.SubmitForReview(999, null);
+        Action act = () => _service.SubmitForReview(999, UserRole.Admin, null);
         act.Should().Throw<InvalidOperationException>().WithMessage("*not found*");
     }
 
@@ -140,7 +140,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 6, State = VersionState.Rejected };
         _versionRepoMock.Setup(r => r.GetById(6)).Returns(version);
 
-        var result = _service.Resubmit(6, null);
+        var result = _service.Resubmit(6, UserRole.Admin, null);
 
         _versionRepoMock.Verify(r => r.UpdateState(6, VersionState.Draft, null,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
@@ -170,7 +170,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 10, State = VersionState.PendingReview };
         _versionRepoMock.Setup(r => r.GetById(10)).Returns(version);
 
-        _service.Approve(10, 42, "LGTM");
+        _service.Approve(10, 42, UserRole.Admin, "LGTM");
 
         _auditServiceMock.Verify(a => a.Log(
             It.Is<AuditAction>(s => s == AuditAction.Approve),
@@ -187,7 +187,7 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 11, State = VersionState.PendingReview };
         _versionRepoMock.Setup(r => r.GetById(11)).Returns(version);
 
-        _service.Reject(11, 42, "Bad data");
+        _service.Reject(11, 42, UserRole.Admin, "Bad data");
 
         _auditServiceMock.Verify(a => a.Log(
             It.Is<AuditAction>(s => s == AuditAction.Reject),

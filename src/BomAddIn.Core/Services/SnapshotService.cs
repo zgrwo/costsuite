@@ -52,11 +52,12 @@ namespace BomAddIn.Core.Services
 
                 // C-8 fix: 检测截断并记录警告，在快照 description 中标记不完整
                 var truncations = new List<string>();
-                if (materials.Count > maxRowsPerTable) truncations.Add("Materials");
-                if (bomStructures.Count > maxRowsPerTable) truncations.Add("BomStructures");
-                if (bomVersions.Count > maxRowsPerTable) truncations.Add("BomVersions");
-                if (prices.Count > maxRowsPerTable) truncations.Add("Prices");
-                if (inventories.Count > maxRowsPerTable) truncations.Add("Inventories");
+                // 当 Count == maxRowsPerTable 时也可能被截断（SQL LIMIT 正好返回上限条数），使用 >= 确保标记
+                if (materials.Count >= maxRowsPerTable) truncations.Add("Materials");
+                if (bomStructures.Count >= maxRowsPerTable) truncations.Add("BomStructures");
+                if (bomVersions.Count >= maxRowsPerTable) truncations.Add("BomVersions");
+                if (prices.Count >= maxRowsPerTable) truncations.Add("Prices");
+                if (inventories.Count >= maxRowsPerTable) truncations.Add("Inventories");
 
                 var isTruncated = truncations.Count > 0;
                 if (isTruncated)

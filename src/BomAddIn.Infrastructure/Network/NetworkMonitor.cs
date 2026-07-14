@@ -18,10 +18,6 @@ namespace BomAddIn.Infrastructure.Network
         private readonly HttpClient _httpClient;
         private readonly string _probeUrl;
 
-        public NetworkMonitor() : this(new AppConfigProvider())
-        {
-        }
-
         public NetworkMonitor(IConfigProvider configProvider)
         {
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };

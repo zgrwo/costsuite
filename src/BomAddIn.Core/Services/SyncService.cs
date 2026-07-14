@@ -72,7 +72,7 @@ namespace BomAddIn.Core.Services
         {
             await CircuitBreaker.ExecuteAsync(
                 () => RetryPolicy.ExecuteAsync(
-                    () => { transactionBody(); return Task.CompletedTask; }));
+                    () => { transactionBody(); return Task.CompletedTask; })).ConfigureAwait(false);
         }
 
         public SyncService(
@@ -116,7 +116,7 @@ namespace BomAddIn.Core.Services
             try
             {
                 // 1. 连接检测
-                var isOnline = await _networkMonitor.ProbeConnectionAsync();
+                var isOnline = await _networkMonitor.ProbeConnectionAsync().ConfigureAwait(false);
                 if (!isOnline)
                 {
                     result.ErrorMessage = "网络不可达，同步跳过。";
@@ -135,9 +135,10 @@ namespace BomAddIn.Core.Services
                 var ordersTask = RetryPolicy.ExecuteAsync(() => _erpAdapter.PullOrdersAsync(since));
                 var capacitiesTask = RetryPolicy.ExecuteAsync(() => _erpAdapter.PullCapacitiesAsync(since));
 
-                // await Task.WhenAll unwraps AggregateException internally;
-                // individual task faults are inspected via IsFaulted below.
-                await Task.WhenAll(materialsTask, pricesTask, inventoriesTask, ordersTask, capacitiesTask);
+                // 等待所有并行任务完成。Task.WhenAll 遇首个故障即抛异常，
+                // 需用 try-catch 包裹以确保后续 IsFaulted 错误聚合代码可达。
+                try { await Task.WhenAll(materialsTask, pricesTask, inventoriesTask, ordersTask, capacitiesTask).ConfigureAwait(false); }
+                catch { /* 吞掉异常 — 下方 IsFaulted 检查统一聚合所有错误 */ }
 
                 // C-16: 检查是否有任何任务失败 — 如果有，全部回滚，不写入任何数据
                 var errors = new List<string>();
@@ -192,7 +193,7 @@ namespace BomAddIn.Core.Services
                         tx.Rollback();
                         throw;
                     }
-                });
+                }).ConfigureAwait(false);
 
                 total = materialsList.Count
                       + pricesList.Count
@@ -228,7 +229,7 @@ namespace BomAddIn.Core.Services
                         if (retry < duckDbMaxRetries - 1)
                         {
                             AppLogger.Warn($"DuckDB 刷新重试 ({retry + 1}/{duckDbMaxRetries}): {ex.Message}", typeof(SyncService));
-                            Thread.Sleep(duckDbRetryDelayMs);
+                            await Task.Delay(duckDbRetryDelayMs).ConfigureAwait(false);
                         }
                         else
                         {

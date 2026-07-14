@@ -16,3 +16,12 @@ BEGIN
     WHERE NEW.BomVersionId IS NOT NULL
     AND NEW.BomVersionId NOT IN (SELECT Id FROM BomVersions);
 END;
+
+-- 触发器级联 FK 检查：BEFORE UPDATE 时验证 BomVersionId 存在
+CREATE TRIGGER IF NOT EXISTS trg_Estimates_BomVersionId_Update
+BEFORE UPDATE OF BomVersionId ON Estimates
+BEGIN
+    SELECT RAISE(ABORT, 'FK violation: BomVersionId not found on UPDATE')
+    WHERE NEW.BomVersionId IS NOT NULL
+    AND NEW.BomVersionId NOT IN (SELECT Id FROM BomVersions);
+END;

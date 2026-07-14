@@ -26,7 +26,7 @@ public partial class BomTaskPane : UserControl
     {
         _dispatcher = Dispatcher.CurrentDispatcher;
         InitializeComponent();
-        RefreshSyncStatus();
+        Loaded += (_, _) => RefreshSyncStatus();
     }
 
     private void RefreshSyncStatus()

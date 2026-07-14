@@ -121,7 +121,6 @@ namespace BomAddIn.Core.Services
         {
             // 为每个物料构建 BOM 树：从已插入节点中选择父节点（Fix: 正确的层级赋值）
             var batchSize = 200;
-            var inserted = 0;
             var sb = new StringBuilder();
 
             var materialIds = conn.Query<long>(
@@ -173,9 +172,6 @@ namespace BomAddIn.Core.Services
                     if (sb.Length > 0)
                     {
                         conn.Execute(sb.ToString(), transaction: tx);
-                        var batchInserted = Math.Min(batchSize, targetNodes - i + batchSize - 1);
-                        if (i == 0) batchInserted = batchSize;
-                        inserted += batchInserted;
                         sb.Clear();
                     }
                 }

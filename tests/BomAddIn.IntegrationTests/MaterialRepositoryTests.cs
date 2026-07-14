@@ -10,6 +10,7 @@ public class MaterialRepositoryTests : IClassFixture<SqliteTestFixture>
 {
     private readonly SqliteTestFixture _fixture;
     private readonly MaterialRepository _repo;
+    // Interlocked.Increment ensures thread-safety even with xUnit parallel execution
     private static int _counter;
 
     public MaterialRepositoryTests(SqliteTestFixture fixture)

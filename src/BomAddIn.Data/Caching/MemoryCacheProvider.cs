@@ -1,12 +1,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace BomAddIn.Data.Caching
 {
-    /// <summary>L1 进程内 MemoryCache — 简单实现，Sprint 5 升级为 Microsoft.Extensions.Caching.Memory</summary>
+    /// <summary>L1 进程内 MemoryCache — 简单实现，带容量上限和过期淘汰</summary>
     public class MemoryCacheProvider : ICacheProvider
     {
+        private const int MaxEntries = 10000;
         private readonly ConcurrentDictionary<string, CacheEntry> _cache = new();
 
         public T? Get<T>(string key) where T : class
@@ -26,8 +28,26 @@ namespace BomAddIn.Data.Caching
 
         public void Set<T>(string key, T value, TimeSpan? ttl = null)
         {
+            // 容量保护：超过上限时清理 20% 最旧条目
+            if (_cache.Count >= MaxEntries)
+            {
+                TrimExcess();
+            }
             var expiresAt = DateTime.UtcNow.Add(ttl ?? TimeSpan.FromMinutes(5));
             _cache[key] = new CacheEntry { Value = value, ExpiresAt = expiresAt };
+        }
+
+        private void TrimExcess()
+        {
+            // 简单 LRU：按过期时间排序，删除最早过期的 20%
+            var removeCount = MaxEntries / 5;
+            var oldest = _cache
+                .OrderBy(kvp => kvp.Value.ExpiresAt)
+                .Take(removeCount)
+                .Select(kvp => kvp.Key)
+                .ToList();
+            foreach (var key in oldest)
+                _cache.TryRemove(key, out _);
         }
 
         public void Remove(string key) => _cache.TryRemove(key, out _);

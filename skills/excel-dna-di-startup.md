@@ -298,7 +298,49 @@ public class DatabaseHealthCheck : IHealthCheck
 - [ ] NLog 在所有其他组件之前初始化
 - [ ] Excel 关闭事件中保存了 SQLite 缓存
 
-## 7. 参考
+## 7. ⚠️ 已知陷阱（2026-07-15 深度排查经验）
+
+### 7.1 .dna ExternalLibrary 数量限制
+
+Excel-DNA 1.8.0 + net472 组合下，ExternalLibrary 数量超过 ~22 时，Excel 会在加载 .xll 时**静默崩溃**（进程退出，无日志）。崩溃与具体库无关，是 Excel-DNA 内部限制。
+
+**规避方案**：
+- 将非 UDF 导出的托管依赖移入 `<Reference>` 标签（CLR 延迟解析）
+- 仅项目 DLL + 直接依赖（DI、shim）放在 ExternalLibrary
+- DuckDB、Polly、ExcelDataReader 等重量级依赖全部用 Reference
+
+**安全配置**：
+```xml
+<!-- 最多 22 个 ExternalLibrary（全部纯托管） -->
+<ExternalLibrary Path="BomAddIn.dll" Pack="true" ExplicitExports="true" />
+<!-- NuGet 纯托管: SQLite, Dapper, NLog, BCrypt, DbUp, DI, shim -->
+<!-- 重量级 + 原生: 全部 Reference -->
+<Reference Path="DuckDB.NET.Data.dll" Pack="true" />
+<Reference Path="duckdb.dll" Pack="false" />
+```
+
+### 7.2 ExplicitExports 按 DLL 精确控制
+
+| 库 | 设置 | 原因 |
+|----|------|------|
+| BomAddIn.dll | `true` | 包含 `[ExcelFunction]` UDF |
+| NLog, BCrypt | `true` | 消除 `Warn/Error/Info/Set/Get` 等假 UDF 注册 |
+| 其余 NuGet | `false` | 加载但不扫描，靠 `ExplicitExports="true"` 的 DLL 防止重名 |
+
+### 7.3 原生 DLL 不得放入 ExternalLibrary
+
+`System.Data.SQLite.dll` 需要 `SQLite.Interop.dll`，`DuckDB.NET.Bindings.dll` 需要 `duckdb.dll`。这些原生 DLL **必须**用 `<Reference>` 而非 `<ExternalLibrary>`，否则 Excel-DNA 会尝试将其作为 .NET 程序集加载 → `BadImageFormatException`。
+
+原生 DLL 只需放在 .xll 同目录，managed wrapper 的 `DllImport` 会自动发现。
+
+### 7.4 ExcelDna.AddIn NuGet 包
+
+必须添加 `ExcelDna.AddIn` 包（不仅是 `ExcelDna.Integration`），它提供：
+- `ExcelDna64.xll` / `ExcelDna.xll` 宿主文件
+- MSBuild targets 自动生成输出 .xll
+- `Properties/ExcelDna.Build.props` 配置 `ExcelAddInExplicitExports`
+
+## 8. 参考
 
 - [Extensibility.ExcelDNA.Sample: 完整 DI 集成示例](https://github.com/terryaney/Extensibility.ExcelDNA.Sample)
 - [Excel-DNA/Samples: 官方启动引导示例](https://github.com/Excel-DNA/Samples)

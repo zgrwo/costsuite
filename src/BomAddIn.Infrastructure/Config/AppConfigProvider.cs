@@ -73,6 +73,7 @@ namespace BomAddIn.Infrastructure.Config
             }
         }
 
+        /// <summary>仅写入内存字典。需要持久化时请通过 IAppConfigRepository 写入 AppConfig 表。</summary>
         public void Set(string key, string value) =>
             _config[key] = value;
 

@@ -87,7 +87,7 @@ namespace BomAddIn.UDF.Functions
                 var cost = service.CalculateCost(itemCode, date);
 
                 if (cost == 0)
-                    return ExcelError.ExcelErrorNA;
+                    return 0.0;  // 返回零成本（正常结果），调用方可用 BOMEXPAND 确认物料存在性
 
                 return cost;
             }

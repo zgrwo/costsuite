@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
+using System.Data;
 using System.Threading.Tasks;
 using BomAddIn.Core.Services;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Data.Sync;
+using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Models.Enums;
 using BomAddIn.Infrastructure.Network;
 using FluentAssertions;
@@ -25,10 +28,19 @@ public class SyncServiceTests
     private readonly Mock<IAuthorizationService> _authzMock = new();
     private readonly Mock<BomAddIn.Data.Analysis.IBomAnalysisProvider> _analysisMock = new();
     private readonly Mock<BomAddIn.Data.Repositories.ISyncLogRepository> _syncLogRepoMock = new();
+    private readonly Mock<IDbConnection> _connMock = new();
+    private readonly Mock<IDbTransaction> _txMock = new();
     private readonly SyncService _service;
 
     public SyncServiceTests()
     {
+        _connFactoryMock.Setup(f => f.CreateConnection()).Returns(_connMock.Object);
+        _connMock.Setup(c => c.BeginTransaction()).Returns(_txMock.Object);
+        _syncLogRepoMock.Setup(r => r.WriteLog(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Returns(1);
+        _syncLogRepoMock.Setup(r => r.UpdateLog(It.IsAny<long>(), It.IsAny<string>(), It.IsAny<int>(), It.IsAny<string?>()))
+            .Callback(() => { });
+
         _service = new SyncService(
             _erpMock.Object, _networkMock.Object,
             _materialRepoMock.Object, _priceRepoMock.Object,
@@ -62,12 +74,51 @@ public class SyncServiceTests
     [Fact]
     public void GetLastSyncTime_NoSyncLog_ReturnsNull()
     {
-        // C-4 fix: GetLastSyncTime 已委托给 ISyncLogRepository
         _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns(() => null);
 
         var result = _service.GetLastSyncTime();
 
         _syncLogRepoMock.Verify(r => r.GetLastSyncCompletedAt(), Times.Once);
         result.Should().BeNull();
+    }
+
+    // ── H-6 fix: SyncService 在线路径测试 ──
+
+    [Fact]
+    public async Task SyncAll_Online_SuccessPath_WritesAllEntities()
+    {
+        // Arrange: 模拟在线 + 所有 ERP 端点返回空数据
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(true);
+        _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<Material>());
+        _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<PriceRecord>());
+        _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<InventoryRecord>());
+        _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<OrderRecord>());
+        _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<CapacityRecord>());
+
+        // Act
+        var result = await _service.SyncAllAsync(UserRole.Admin);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.TotalRecords.Should().Be(0);
+        _syncLogRepoMock.Verify(r => r.UpdateLog(1, SyncStatus.Complete.ToString(), 0, It.IsAny<string?>()), Times.Once);
+    }
+
+    // ── H-10: Date boundary 回归测试 — 同日节点包含性 ──
+
+    [Fact]
+    public void GetLastSyncTime_ReturnsValue_FromRepository()
+    {
+        var expected = new DateTime(2026, 7, 15, 10, 30, 0, DateTimeKind.Utc);
+        _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns(expected);
+
+        var result = _service.GetLastSyncTime();
+
+        result.Should().Be(expected);
     }
 }

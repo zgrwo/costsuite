@@ -47,7 +47,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             var value = conn.QueryFirstOrDefault<string>(
                 "SELECT CompletedAt FROM SyncLogs WHERE Status = 'Complete' ORDER BY CompletedAt DESC LIMIT 1");
-            return value != null ? DateTime.Parse(value) : (DateTime?)null;
+            return value != null ? DateTime.Parse(value, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.RoundtripKind) : (DateTime?)null;
         }
 
         public IEnumerable<SyncLog> GetRecent(int limit = 10)

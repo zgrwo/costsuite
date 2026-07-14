@@ -9,10 +9,12 @@ using BomAddIn.Data.Repositories;
 using BomAddIn.Data.Sync;
 using BomAddIn.EventBus;
 using BomAddIn.Infrastructure.Config;
+using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Infrastructure.Network;
 using BomAddIn.Infrastructure.Security;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
+using System;
 
 namespace BomAddIn
 {
@@ -30,6 +32,7 @@ namespace BomAddIn
             Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.VersionState>());
             Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.AuditAction>());
             Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.SnapshotType>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.SyncStatus>());
 
             var services = new ServiceCollection();
 
@@ -75,15 +78,17 @@ namespace BomAddIn
                     if (!string.IsNullOrWhiteSpace(env))
                         envManager.LoadFromDb($"Data Source={SqliteConnectionFactory.ProdDatabasePath}");
                 }
-                catch
-                {
-                    // 表不存在时使用默认 PROD
-                }
-            }
-            catch
+                catch (Exception ex)
             {
-                // 初始化失败不阻止启动
+                // 表不存在时使用默认 PROD
+                AppLogger.Warn($"InitializeEnvironment: 环境配置读取失败，使用默认 PROD。原因: {ex.Message}", typeof(ServiceConfigurator));
             }
+        }
+        catch (Exception ex)
+        {
+            // 初始化失败不阻止启动，但记录日志以便诊断
+            AppLogger.Warn($"InitializeEnvironment: 环境初始化失败。原因: {ex.Message}", typeof(ServiceConfigurator));
+        }
         }
 
         private static void InitializeConfigProvider(ServiceProvider provider)

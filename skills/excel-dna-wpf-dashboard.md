@@ -229,7 +229,21 @@ public static void AutoOpen()
 - [ ] Excel 关闭时通知 WPF 线程退出
 - [ ] 窗口恢复逻辑（show + activate，而非每次 new）
 
-## 9. 参考
+## 9. ⚠️ 已知陷阱
+
+### 9.1 CustomTaskPane + WPF 导致 Excel 崩溃
+
+`CustomTaskPaneFactory.CreateCustomTaskPane(typeof(BomTaskPane), ...)` 在 AutoOpen 中直接调用时，如果 WPF 资源（`PresentationFramework`、`WindowsBase` 等）未完全就绪，会导致 Excel **静默崩溃**（进程退出，无异常日志）。
+
+**症状**: 加载 .xll 时 Excel 立即退出，下次打开提示"安全模式"。
+
+**规避**: 当前版本禁用 `RegisterTaskPane()`。恢复前需确认 WPF 初始化在 Excel-DNA 加载链中的时序。
+
+### 9.2 Dashboard/ViewModel 构造不查数据库
+
+ViewModel 构造函数中同步查询数据库 → 阻塞 Excel 主线程 → 超时或死锁。使用 `async Task InitializeAsync()` + `Window.Loaded` 事件触发。
+
+## 10. 参考
 
 - [DotNetRefEdit: WPF + Excel-DNA 完整演示](https://github.com/Ron-Ldn/DotNetRefEdit)
 - [FinAnSu: Ribbon + RTD + 图表的综合 Excel-DNA 项目](https://github.com/brymck/finansu)

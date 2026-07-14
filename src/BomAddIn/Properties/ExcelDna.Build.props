@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <!-- Excel-DNA: 只注册 [ExcelFunction] 显式标记的 UDF -->
+    <ExcelAddInExplicitExports>true</ExcelAddInExplicitExports>
+    <ExcelAddInExplicitRegistration>true</ExcelAddInExplicitRegistration>
+    <!-- Ribbon 不使用 COM 注册 -->
+    <ExcelAddInComServer>false</ExcelAddInComServer>
+  </PropertyGroup>
+</Project>

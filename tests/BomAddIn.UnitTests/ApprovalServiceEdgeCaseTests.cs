@@ -29,7 +29,8 @@ public class ApprovalServiceEdgeCaseTests
     {
         _connFactoryMock.Setup(f => f.CreateConnection()).Returns(_connMock.Object);
         _connMock.Setup(c => c.BeginTransaction()).Returns(_txMock.Object);
-        _service = new ApprovalService(_versionRepoMock.Object, _auditMock.Object, _connFactoryMock.Object);
+        _service = new ApprovalService(_versionRepoMock.Object, _auditMock.Object, _connFactoryMock.Object,
+            Mock.Of<IAuthorizationService>());
     }
 
     /// <summary>创建指定状态的版本 mock</summary>
@@ -55,7 +56,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(1, VersionState.Approved);
 
-        Action act = () => _service.SubmitForReview(1);
+        Action act = () => _service.SubmitForReview(1, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -66,7 +67,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(1, VersionState.Released);
 
-        Action act = () => _service.SubmitForReview(1);
+        Action act = () => _service.SubmitForReview(1, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -77,7 +78,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(1, VersionState.Obsolete);
 
-        Action act = () => _service.SubmitForReview(1);
+        Action act = () => _service.SubmitForReview(1, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -92,7 +93,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(2, VersionState.Draft);
 
-        Action act = () => _service.Approve(2, userId: 101);
+        Action act = () => _service.Approve(2, userId: 101, callerRole: UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -103,7 +104,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(2, VersionState.Approved);
 
-        Action act = () => _service.Approve(2, userId: 101);
+        Action act = () => _service.Approve(2, userId: 101, callerRole: UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -116,7 +117,7 @@ public class ApprovalServiceEdgeCaseTests
         // 如果审批人 userId == 提交人 ApprovedBy → 应拒绝
         SetupVersion(2, VersionState.PendingReview, approvedBy: 101);
 
-        Action act = () => _service.Approve(2, userId: 101);
+        Action act = () => _service.Approve(2, userId: 101, callerRole: UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*自行审批*");
@@ -125,7 +126,7 @@ public class ApprovalServiceEdgeCaseTests
     [Fact]
     public void Approve_InvalidUserId_Throws()
     {
-        Action act = () => _service.Approve(1, userId: 0);
+        Action act = () => _service.Approve(1, userId: 0, callerRole: UserRole.Admin);
 
         act.Should().Throw<ArgumentException>()
             .WithMessage("*审批人 ID*");
@@ -134,7 +135,7 @@ public class ApprovalServiceEdgeCaseTests
     [Fact]
     public void Approve_NegativeUserId_Throws()
     {
-        Action act = () => _service.Approve(1, userId: -1);
+        Action act = () => _service.Approve(1, userId: -1, callerRole: UserRole.Admin);
 
         act.Should().Throw<ArgumentException>()
             .WithMessage("*审批人 ID*");
@@ -149,7 +150,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(3, VersionState.Draft);
 
-        Action act = () => _service.Reject(3, userId: 102, "Test rejection reason");
+        Action act = () => _service.Reject(3, userId: 102, callerRole: UserRole.Admin, "Test rejection reason");
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -160,7 +161,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(3, VersionState.Approved);
 
-        Action act = () => _service.Reject(3, userId: 102, "Test rejection reason");
+        Action act = () => _service.Reject(3, userId: 102, callerRole: UserRole.Admin, "Test rejection reason");
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -175,7 +176,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(4, VersionState.Draft);
 
-        Action act = () => _service.Release(4);
+        Action act = () => _service.Release(4, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -186,7 +187,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(4, VersionState.PendingReview);
 
-        Action act = () => _service.Release(4);
+        Action act = () => _service.Release(4, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -207,7 +208,7 @@ public class ApprovalServiceEdgeCaseTests
         SetupVersion(5, from);
 
         // Obsolete 从任何非终态都可以转换
-        var result = _service.Obsolete(5);
+        var result = _service.Obsolete(5, UserRole.Admin);
 
         _versionRepoMock.Verify(r => r.UpdateState(5, VersionState.Obsolete, null, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
     }
@@ -217,7 +218,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(5, VersionState.Obsolete);
 
-        Action act = () => _service.Obsolete(5);
+        Action act = () => _service.Obsolete(5, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -261,7 +262,7 @@ public class ApprovalServiceEdgeCaseTests
         _versionRepoMock.Setup(r => r.GetById(999, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()))
             .Returns((BomVersion?)null);
 
-        Action act = () => _service.Approve(999, userId: 100);
+        Action act = () => _service.Approve(999, userId: 100, callerRole: UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*not found*");
@@ -273,7 +274,7 @@ public class ApprovalServiceEdgeCaseTests
         _versionRepoMock.Setup(r => r.GetById(999, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()))
             .Returns((BomVersion?)null);
 
-        Action act = () => _service.SubmitForReview(999);
+        Action act = () => _service.SubmitForReview(999, UserRole.Admin);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*not found*");

@@ -25,7 +25,9 @@ namespace BomAddIn.Core.Services
                     BomOperation.SupplierUpdate, BomOperation.SupplierDelete,
                     BomOperation.ConfigRead, BomOperation.ConfigUpdate,
                     BomOperation.UserManage,
-                    BomOperation.SyncTrigger
+                    BomOperation.SyncTrigger,
+                    BomOperation.BomApprove, BomOperation.BomReject,
+                    BomOperation.BomRelease, BomOperation.BomObsolete
                 },
                 [UserRole.Analyst] = new HashSet<BomOperation>
                 {
@@ -35,7 +37,8 @@ namespace BomAddIn.Core.Services
                     BomOperation.SupplierRead,
                     BomOperation.SupplierCreate, BomOperation.SupplierUpdate,
                     BomOperation.ConfigRead,
-                    BomOperation.SyncTrigger
+                    BomOperation.SyncTrigger,
+                    BomOperation.BomApprove, BomOperation.BomReject
                 },
                 [UserRole.Viewer] = new HashSet<BomOperation>
                 {

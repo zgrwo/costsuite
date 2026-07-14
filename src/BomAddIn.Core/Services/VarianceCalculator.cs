@@ -123,7 +123,7 @@ namespace BomAddIn.Core.Services
                 {
                     NodeCode = $"MAT-{materialId}",
                     NodeDescription = $"价格比较跳过 — 币种不同 ({currencyA} vs {currencyB})",
-                    ChangeType = VarianceChangeType.Unchanged,
+                    ChangeType = VarianceChangeType.Unchanged, // 币种不同时标记为Unchanged，message中注明跳过原因
                     Dimension = VarianceDimension.Price,
                     OldValue = $"{priceA:F4} {currencyA}",
                     NewValue = $"{priceB:F4} {currencyB}",
