@@ -1,26 +1,26 @@
 <DnaLibrary Name="BomAddIn" RuntimeVersion="v4.0">
   <ExternalLibrary Path="BomAddIn.dll" Pack="true" ExplicitExports="true" />
-  <ExternalLibrary Path="BomAddIn.Core.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="BomAddIn.Data.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="BomAddIn.Infrastructure.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.Data.SQLite.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="Dapper.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="NLog.dll" Pack="true" ExplicitExports="true" />
-  <ExternalLibrary Path="BCrypt.Net-Next.dll" Pack="true" ExplicitExports="true" />
-  <ExternalLibrary Path="System.Security.Cryptography.ProtectedData.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="dbup-core.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="dbup-sqlite.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="Microsoft.Extensions.DependencyInjection.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.Memory.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.Buffers.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.Runtime.CompilerServices.Unsafe.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.Threading.Tasks.Extensions.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.ValueTuple.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.Numerics.Vectors.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="System.ComponentModel.Annotations.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="Microsoft.Bcl.AsyncInterfaces.dll" Pack="true" ExplicitExports="false" />
-  <ExternalLibrary Path="Microsoft.Bcl.TimeProvider.dll" Pack="true" ExplicitExports="false" />
+  <Reference Path="BomAddIn.Core.dll" Pack="true" />
+  <Reference Path="BomAddIn.Data.dll" Pack="true" />
+  <Reference Path="BomAddIn.Infrastructure.dll" Pack="true" />
+  <Reference Path="System.Data.SQLite.dll" Pack="true" />
+  <Reference Path="Dapper.dll" Pack="true" />
+  <Reference Path="NLog.dll" Pack="true" />
+  <Reference Path="BCrypt.Net-Next.dll" Pack="true" />
+  <Reference Path="System.Security.Cryptography.ProtectedData.dll" Pack="true" />
+  <Reference Path="dbup-core.dll" Pack="true" />
+  <Reference Path="dbup-sqlite.dll" Pack="true" />
+  <Reference Path="Microsoft.Extensions.DependencyInjection.dll" Pack="true" />
+  <Reference Path="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Pack="true" />
+  <Reference Path="System.Memory.dll" Pack="true" />
+  <Reference Path="System.Buffers.dll" Pack="true" />
+  <Reference Path="System.Runtime.CompilerServices.Unsafe.dll" Pack="true" />
+  <Reference Path="System.Threading.Tasks.Extensions.dll" Pack="true" />
+  <Reference Path="System.ValueTuple.dll" Pack="true" />
+  <Reference Path="System.Numerics.Vectors.dll" Pack="true" />
+  <Reference Path="System.ComponentModel.Annotations.dll" Pack="true" />
+  <Reference Path="Microsoft.Bcl.AsyncInterfaces.dll" Pack="true" />
+  <Reference Path="Microsoft.Bcl.TimeProvider.dll" Pack="true" />
   <Reference Path="DuckDB.NET.Data.dll" Pack="true" />
   <Reference Path="DuckDB.NET.Bindings.dll" Pack="true" />
   <Reference Path="Polly.Core.dll" Pack="true" />
