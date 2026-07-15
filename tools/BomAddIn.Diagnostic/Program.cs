@@ -27,6 +27,9 @@ public class Program
 {
     public static int Main(string[] args)
     {
+        // 探测项目 database/ 目录
+        DetectProjectDatabase();
+
         Console.WriteLine("=== BOM Suite Diagnostic Tool v1.1 ===");
         Console.WriteLine();
 
@@ -55,6 +58,27 @@ public class Program
     }
 
     /// <summary>读取当前环境并创建对应连接工厂</summary>
+    /// <summary>探测项目 database/ 目录：从 exe 位置向上查找</summary>
+    private static void DetectProjectDatabase()
+    {
+        try
+        {
+            var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            var dir = exeDir;
+            for (int i = 0; i < 6 && dir != null; i++)
+            {
+                var candidate = Path.Combine(dir, "database");
+                if (Directory.Exists(candidate))
+                {
+                    SqliteConnectionFactory.ProjectDbRoot = candidate;
+                    return;
+                }
+                dir = Path.GetDirectoryName(dir);
+            }
+        }
+        catch { /* 探测失败，使用 %LocalAppData% 回退 */ }
+    }
+
     private static SqliteConnectionFactory CreateEnvFactory()
     {
         var env = ReadCurrentEnvironment();
@@ -227,7 +251,7 @@ public class Program
 
     private static void RunEnvCommand(string[] args)
     {
-        var dbDir = SqliteConnectionFactory.GetDatabaseDirectory();
+        var dbDir = SqliteConnectionFactory.GetDatabaseDirectory("PROD");
         var prodDb = SqliteConnectionFactory.ProdDatabasePath;
 
         // 读取当前环境

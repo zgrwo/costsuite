@@ -122,7 +122,7 @@ namespace BomAddIn.Data.Analysis
                             m.Id AS MaterialId,
                             NULL::BIGINT AS ParentMaterialId,
                             m.Code, m.Name, m.Unit,
-                            1.0 AS Quantity,
+                            CAST(1.0 AS DOUBLE) AS Quantity,
                             0 AS Level,
                             [m.Id] AS Path
                         FROM Materials m
@@ -134,7 +134,7 @@ namespace BomAddIn.Data.Analysis
                             b.ChildMaterialId AS MaterialId,
                             b.ParentMaterialId,
                             m2.Code, m2.Name, m2.Unit,
-                            b.Quantity * bt.Quantity,
+                            CAST(b.Quantity AS DOUBLE) * CAST(bt.Quantity AS DOUBLE),
                             bt.Level + 1,
                             list_concat(bt.Path, [b.ChildMaterialId]) AS Path
                         FROM BomNodes b

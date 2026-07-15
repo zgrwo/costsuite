@@ -63,9 +63,33 @@ namespace BomAddIn
         {
             try
             {
+                // 探测项目 database/ 目录：从 XLL 路径向上查找
+                try
+                {
+                    var xllDir = System.IO.Path.GetDirectoryName(ExcelDna.Integration.ExcelDnaUtil.XllPath);
+                    if (!string.IsNullOrWhiteSpace(xllDir))
+                    {
+                        var dir = xllDir;
+                        for (int i = 0; i < 5 && dir != null; i++)
+                        {
+                            var candidate = System.IO.Path.Combine(dir, "database");
+                            if (System.IO.Directory.Exists(candidate))
+                            {
+                                SqliteConnectionFactory.ProjectDbRoot = candidate;
+                                AppLogger.Info($"数据库根目录: {candidate}", typeof(ServiceConfigurator));
+                                break;
+                            }
+                            dir = System.IO.Path.GetDirectoryName(dir);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"项目 database/ 目录探测失败，回退到 %LocalAppData%。原因: {ex.Message}", typeof(ServiceConfigurator));
+                }
+
                 var envManager = provider.GetRequiredService<EnvironmentManager>();
-                // 使用 PROD 连接字符串先读取环境配置（因为此时还不知道环境）
-                // 先用默认 PROD 连接检查配置表中的环境设置
+                // 使用 PROD 连接字符串先读取环境配置
                 using var conn = new System.Data.SQLite.SQLiteConnection(
                     $"Data Source={SqliteConnectionFactory.ProdDatabasePath}");
                 conn.Open();

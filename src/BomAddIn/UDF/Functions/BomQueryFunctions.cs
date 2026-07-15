@@ -60,8 +60,9 @@ namespace BomAddIn.UDF.Functions
             }
             catch (Exception ex)
             {
-                AppLogger.Warn($"BOMEXPAND 错误: {ex.Message}", typeof(BomQueryFunctions));
-                return ExcelError.ExcelErrorValue;
+                AppLogger.Error($"BOMEXPAND 错误: {ex}", ex, typeof(BomQueryFunctions));
+                // 调试模式：直接返回错误信息，方便在单元格中看到具体原因
+                return $"#ERROR: {ex.GetType().Name}: {ex.Message}";
             }
         }
 
@@ -93,8 +94,8 @@ namespace BomAddIn.UDF.Functions
             }
             catch (Exception ex)
             {
-                AppLogger.Warn($"BOMCOST 错误: {ex.Message}", typeof(BomQueryFunctions));
-                return ExcelError.ExcelErrorValue;
+                AppLogger.Error($"BOMCOST 错误: {ex}", ex, typeof(BomQueryFunctions));
+                return $"#ERROR: {ex.GetType().Name}: {ex.Message}";
             }
         }
     }

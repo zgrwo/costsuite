@@ -60,6 +60,12 @@ namespace BomAddIn.Core.Services
             if (cached != null)
                 return cached;
 
+            // 确保 DuckDB 已加载（懒加载 — 预热可能尚未完成）
+            using (var conn = _connectionFactory.CreateConnection())
+            {
+                _analysisProvider.EnsureLoaded(conn);
+            }
+
             // 缓存未命中 → DuckDB 展开
             var nodes = _analysisProvider.ExpandBom(itemCode, asOfDate);
 
