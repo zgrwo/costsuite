@@ -375,139 +375,12 @@ database/
 
 ---
 
-## 4.7 数据库关系图 (ER Diagram)
+## 4.7 数据库
 
-### 4.7.1 核心业务表
+> **数据模型权威定义**: 见表结构、ER 图、外键关系 → [spec §4](specification.md#4-数据模型)。  
+> **DDL 实现**: 见 `src/BomAddIn.Data/Migrations/S001_InitialSchema.sql`。
 
-```text
-┌──────────────────────┐        ┌──────────────────────┐
-│      Suppliers       │        │      Materials       │
-│──────────────────────│        │──────────────────────│
-│ Id            PK     │        │ Id            PK     │
-│ OrgId                │        │ OrgId                │
-│ Code           UQ    │        │ Code           UQ    │
-│ Name                 │        │ Name                 │
-│ Contact              │        │ Spec                 │
-│ Rating               │        │ Unit                 │
-│ CreatedAt            │        │ Category             │
-│ UpdatedAt            │        │ IsActive             │
-└──────────┬───────────┘        │ CreatedAt            │
-           │                    │ UpdatedAt            │
-           │                    └────┬──────┬──────┬───┘
-           │                         │      │      │
-           │              ┌──────────┘      │      └──────────────┐
-           │              │                 │                     │
-           ▼              ▼                 ▼                     ▼
-┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────┐
-│     Prices       │ │  BomStructures   │ │   Inventories    │ │    Orders    │
-│──────────────────│ │──────────────────│ │──────────────────│ │──────────────│
-│ Id         PK    │ │ Id         PK    │ │ Id         PK    │ │ Id     PK    │
-│ OrgId            │ │ OrgId            │ │ OrgId            │ │ OrgId        │
-│ MaterialId FK ───┘ │ ParentMaterialId │ │ MaterialId FK ───┘ │ MaterialId   │
-│ SupplierId FK ────→│   FK → Materials │ │ WarehouseId      │ │ OrderQty     │
-│ UnitPrice         │ │ ChildMaterialId  │ │ Quantity         │ │ DueDate      │
-│ Currency          │ │   FK → Materials │ │ DataVersion      │ │ DataVersion  │
-│ DataVersion       │ │ Quantity         │ │ SnapshotDate     │ │ CreatedAt    │
-│ EffectiveDate     │ │ Position         │ │ CreatedAt        │ └──────────────┘
-│ CreatedAt         │ │ ScrapRate        │ └──────────────────┘
-└──────────────────┘ │ BomViewType      │
-                     │ Level            │        ┌──────────────────────┐
-                     │ ValidFrom        │        │     BomVersions      │
-                     │ ValidTo          │        │──────────────────────│
-                     │ VersionState     │        │ Id            PK     │
-                     │ CreatedAt        │───────→│ BomId         FK ───┘
-                     │ UpdatedAt        │        │ VersionNumber        │
-                     └──────────────────┘        │ State                │
-                                                 │ ApprovedBy    FK ──┐
-┌──────────────────┐                             │ ApprovedAt          │
-│    Capacities    │                             │ CreatedAt           │
-│──────────────────│                             └──────────┬──────────┘
-│ Id         PK    │                                        │
-│ OrgId            │                             ┌──────────▼──────────┐
-│ WorkCenterId     │                             │     Estimates       │
-│ CapacityHours    │                             │─────────────────────│
-│ DataVersion      │                             │ Id           PK     │
-│ CreatedAt        │                             │ OrgId               │
-└──────────────────┘                             │ BomVersionId FK ───┘
-                                                 │ TotalCost           │
-                                                 │ LaborHours          │
-                                                 │ Notes               │
-                                                 │ CreatedAt           │
-                                                 │ UpdatedAt           │
-                                                 └─────────────────────┘
-```
-
-### 4.7.2 用户与审计表
-
-```text
-┌──────────────────────┐
-│       Users          │
-│──────────────────────│
-│ Id            PK     │
-│ Username      UQ     │
-│ PasswordHash         │
-│ Role                 │
-│ OrgId                │
-│ IsActive             │
-│ FailedLoginAttempts  │
-│ LockoutUntil         │
-│ CreatedAt            │
-│ LastLoginAt          │
-└────┬──────────┬──────┘
-     │          │
-     │          └──────────────────────┐
-     ▼                                 ▼
-┌──────────────────┐          ┌──────────────────┐
-│   UserTokens     │          │    AuditLogs     │
-│──────────────────│          │──────────────────│
-│ Id         PK    │          │ Id         PK    │
-│ UserId     FK ───┘          │ UserId     FK ───┘
-│ TokenHash        │          │ Action            │
-│ ExpiresAt        │          │ TableName         │
-│ IsRevoked        │          │ RecordId          │
-│ CreatedAt        │          │ OldValues (JSON)  │
-└──────────────────┘          │ NewValues (JSON)  │
-                              │ Timestamp         │
-                              └───────────────────┘
-
-┌──────────────────┐          ┌──────────────────────┐
-│    SyncLogs      │          │     AppConfig        │
-│──────────────────│          │──────────────────────│
-│ Id         PK    │          │ Id            PK     │
-│ SyncType         │          │ Key            UQ    │
-│ StartedAt        │          │ Value                │
-│ CompletedAt      │          │ Description          │
-│ RecordsProcessed │          │ UpdatedAt            │
-│ Status           │          └──────────────────────┘
-│ ErrorMessage     │
-└──────────────────┘          ┌──────────────────────┐
-                              │   DataSnapshots      │
-┌──────────────────────┐      │──────────────────────│
-│   SchemaVersions     │      │ Id            PK     │
-│──────────────────────│      │ SnapshotType         │
-│ SchemaVersionID PK   │      │ SnapshotData (JSON)  │
-│ ScriptName           │      │ CreatedAt            │
-│ Applied              │      │ Description          │
-└──────────────────────┘      └──────────────────────┘
-```
-
-### 4.7.3 关系摘要
-
-| 子表 | 外键 | 父表 | 基数 |
-|------|------|------|------|
-| BomStructures | ParentMaterialId | Materials | M:1 |
-| BomStructures | ChildMaterialId | Materials | M:1 |
-| BomVersions | BomId | BomStructures | M:1 |
-| BomVersions | ApprovedBy | Users | M:1 (可空) |
-| Estimates | BomVersionId | BomVersions | M:1 (可空) |
-| Prices | MaterialId | Materials | M:1 |
-| Prices | SupplierId | Suppliers | M:1 |
-| Inventories | MaterialId | Materials | M:1 |
-| Orders | MaterialId | Materials | M:1 |
-| UserTokens | UserId | Users | M:1 |
-| AuditLogs | UserId | Users | M:1 (可空) |
-
-### 4.7.4 种子数据规模 (500 物料基准)
+### 4.7.1 种子数据规模 (500 物料基准)
 
 | 表 | 行数 | 说明 |
 |------|------|------|
@@ -520,10 +393,9 @@ database/
 | Orders | ~150 | 30% 物料有在途订单 |
 | Capacities | 7 | 7 个工作中心 |
 | Estimates | 15 | 15 个根物料成本估算 |
+| SyncLogs | 5 | Full/Incremental 同步记录 |
 | Users | 2 | admin / viewer |
 | AppConfig | 6 | 环境/同步/缓存/阈值配置 |
-| SyncLogs | 5 | Full/Incremental 同步记录 |
-| SchemaVersions | 4 | DbUp 迁移追踪 |
 
 ---
 
