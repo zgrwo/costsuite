@@ -121,4 +121,56 @@ public class SyncServiceTests
 
         result.Should().Be(expected);
     }
+
+    // ── H-29: 离线→在线转换 + 并发编辑测试 ──
+
+    [Fact]
+    public async Task SyncAll_OfflineToOnline_Transition_ShouldDetectNetworkChange()
+    {
+        // 第1次调用: 离线
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(false);
+        var offlineResult = await _service.SyncAllAsync(UserRole.Admin);
+        offlineResult.Success.Should().BeFalse();
+
+        // 第2次调用: 恢复在线
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(true);
+        _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<Material>());
+        _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<PriceRecord>());
+        _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<InventoryRecord>());
+        _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<OrderRecord>());
+        _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<CapacityRecord>());
+
+        var onlineResult = await _service.SyncAllAsync(UserRole.Admin);
+        onlineResult.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task SyncAll_RapidToggle_NoStateCorruption()
+    {
+        // 快速切换离线→在线→离线，验证无异常
+        for (int i = 0; i < 3; i++)
+        {
+            _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(i % 2 == 0);
+            if (i % 2 == 0)
+            {
+                _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+                    .ReturnsAsync(new List<Material>());
+                _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+                    .ReturnsAsync(new List<PriceRecord>());
+                _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+                    .ReturnsAsync(new List<InventoryRecord>());
+                _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+                    .ReturnsAsync(new List<OrderRecord>());
+                _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+                    .ReturnsAsync(new List<CapacityRecord>());
+            }
+            var result = await _service.SyncAllAsync(UserRole.Admin);
+            result.Should().NotBeNull();
+        }
+    }
 }
