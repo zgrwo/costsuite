@@ -138,12 +138,13 @@ namespace BomAddIn.Core.Services
             if (Math.Abs(priceA - priceB) < relativeThreshold)
                 return results;
 
-            // C-12 fix: priceA==0 时百分比变化为 null（旧价格为零，无法计算有意义的百分比）
+            // H-29: priceA==0 且 priceB!=0 时使用哨兵值 MaxValue，
+            // AlertEvaluator 识别哨兵值并生成"价格从零变为正值"告警
             double? changePct;
             if (priceA > 0)
                 changePct = (double)Math.Round((priceB - priceA) / priceA * 100, 2);
             else
-                changePct = priceB != 0 ? null : 0;
+                changePct = priceB != 0 ? double.MaxValue : 0;
 
             results.Add(new VarianceResult
             {

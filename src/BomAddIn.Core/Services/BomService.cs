@@ -128,11 +128,11 @@ namespace BomAddIn.Core.Services
             using var tx = conn.BeginTransaction();
             try
             {
-                var oldNode = _bomNodeRepository.GetById(node.Id);
+                // H-29: 在事务内读取旧值 + 版本号，消除 TOCTOU 窗口
+                var oldNode = _bomNodeRepository.GetById(node.Id, conn, tx);
                 _bomNodeRepository.Update(node, conn, tx);
 
-                // 原子版本号：使用 Repository 获取最新版号+1 (code-review C-12)
-                var latest = _bomVersionRepository.GetLatest(node.Id);
+                var latest = _bomVersionRepository.GetLatest(node.Id, conn, tx);
                 var nextVersion = (latest?.VersionNumber ?? 0) + 1;
 
                 _bomVersionRepository.Add(new BomVersion
@@ -141,7 +141,7 @@ namespace BomAddIn.Core.Services
                     VersionNumber = nextVersion,
                     State = VersionState.Draft,
                     CreatedAt = DateTime.UtcNow
-                });
+                }, conn, tx);
 
                 TryLogAudit(AuditAction.Update, node.Id,
                     oldNode != null ? AuditService.ToJson(oldNode) : null,
@@ -168,7 +168,8 @@ namespace BomAddIn.Core.Services
             using var tx = conn.BeginTransaction();
             try
             {
-                var node = _bomNodeRepository.GetById(id);
+                // H-29: 在事务内读取，消除 TOCTOU 窗口
+                var node = _bomNodeRepository.GetById(id, conn, tx);
                 _bomNodeRepository.Delete(id, conn, tx);
                 TryLogAudit(AuditAction.Delete, id,
                     node != null ? AuditService.ToJson(node) : null, null, userId);

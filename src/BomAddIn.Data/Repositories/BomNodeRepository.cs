@@ -20,8 +20,13 @@ namespace BomAddIn.Data.Repositories
         public BomNode? GetById(long id)
         {
             using var conn = _connectionFactory.CreateConnection();
+            return GetById(id, conn, null);
+        }
+
+        public BomNode? GetById(long id, IDbConnection conn, IDbTransaction? tx)
+        {
             return conn.QueryFirstOrDefault<BomNode>(
-                "SELECT * FROM BomStructures WHERE Id = @Id", new { Id = id });
+                "SELECT * FROM BomStructures WHERE Id = @Id", new { Id = id }, tx);
         }
 
         public IEnumerable<BomNode> GetChildren(long parentMaterialId, DateTime? asOfDate = null)

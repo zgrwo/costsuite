@@ -12,13 +12,19 @@ namespace BomAddIn.Bridge
         private static readonly Version DynamicArrayMinVersion = new Version(16, 0, 12026);
 
         private static bool? _isDynamicArraySupported;
+        private static readonly object _initLock = new();
 
         public VersionAdapter()
         {
-            // 在 AutoOpen 中通过 DI 创建实例，此时在 Excel 主线程上，
-            // 直接检测并缓存结果，避免延迟到后台线程访问 COM
+            // H-29: 线程安全初始化。首次构造时检测 Excel 版本能力并缓存。
             if (_isDynamicArraySupported == null)
-                _isDynamicArraySupported = DetectDynamicArraySupport();
+            {
+                lock (_initLock)
+                {
+                    if (_isDynamicArraySupported == null)
+                        _isDynamicArraySupported = DetectDynamicArraySupport();
+                }
+            }
         }
 
         public bool IsDynamicArraySupported => _isDynamicArraySupported ?? false;

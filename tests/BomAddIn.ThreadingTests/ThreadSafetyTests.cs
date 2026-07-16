@@ -16,6 +16,7 @@ namespace BomAddIn.ThreadingTests;
 /// 线程安全探针测试 — Sprint 0 探针 P-0.1 补充 (v2 H-26)。
 /// 验证三条红线之一的线程隔离机制在并发压力下不发生数据损坏。
 /// </summary>
+[Collection("Sequential")]
 public class ThreadSafetyTests
 {
     // ── Container ──

@@ -76,8 +76,22 @@ namespace BomAddIn.Core.Services
                     });
                 }
 
-                // 规则 3: 价格波动 > criticalThreshold → Critical (M-4: 使 Critical 可达)
+                // 规则 3: 价格从零变为正值（哨兵值 double.MaxValue）→ Critical
                 if (v.Dimension == VarianceDimension.Price
+                    && v.ChangePercent.HasValue
+                    && v.ChangePercent.Value >= double.MaxValue - 1)
+                {
+                    alerts.Add(new Alert
+                    {
+                        Severity = AlertSeverity.Critical,
+                        Message = $"价格从零变为非零，变动无法计算百分比: {v.NodeCode} ({v.OldValue} → {v.NewValue})",
+                        TriggeredRule = "PRICE_CHANGE_FROM_ZERO",
+                        NodeCode = v.NodeCode,
+                        Dimension = "Price"
+                    });
+                }
+                // 规则 4: 价格波动 > criticalThreshold → Critical (M-4: 使 Critical 可达)
+                else if (v.Dimension == VarianceDimension.Price
                     && v.ChangePercent.HasValue
                     && Math.Abs(v.ChangePercent.Value) > _priceCriticalThreshold)
                 {
@@ -90,7 +104,7 @@ namespace BomAddIn.Core.Services
                         Dimension = "Price"
                     });
                 }
-                // 规则 4: 价格波动 > severeThreshold → Error
+                // 规则 5: 价格波动 > severeThreshold → Error
                 else if (v.Dimension == VarianceDimension.Price
                     && v.ChangePercent.HasValue
                     && Math.Abs(v.ChangePercent.Value) > _priceSevereThreshold)
@@ -104,7 +118,7 @@ namespace BomAddIn.Core.Services
                         Dimension = "Price"
                     });
                 }
-                // 规则 5: 价格波动 > warningThreshold → Warning
+                // 规则 6: 价格波动 > warningThreshold → Warning
                 else if (v.Dimension == VarianceDimension.Price
                     && v.ChangePercent.HasValue
                     && Math.Abs(v.ChangePercent.Value) > _priceWarningThreshold)
@@ -119,7 +133,7 @@ namespace BomAddIn.Core.Services
                     });
                 }
 
-                // 规则 6: BOM 数量变化 > 阈值 → Warning (H-16: 使用实际阈值)
+                // 规则 7: BOM 数量变化 > 阈值 → Warning (H-16: 使用实际阈值)
                 if (v.Dimension == VarianceDimension.BomStructure
                     && v.ChangeType == VarianceChangeType.Modified
                     && v.ChangePercent.HasValue

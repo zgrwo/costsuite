@@ -120,7 +120,7 @@ public partial class BomTaskPane : UserControl
         if (e.Key == Key.Enter) DoSearch();
     }
 
-    private void DoSearch()
+    private async void DoSearch()
     {
         var code = txtSearchCode.Text?.Trim();
         if (string.IsNullOrWhiteSpace(code))
@@ -129,15 +129,19 @@ public partial class BomTaskPane : UserControl
             return;
         }
 
+        txtSearchResult.Text = "搜索中...";
         try
         {
-            using var scope = Container.BeginScope();
-            var bomService = scope.ServiceProvider.GetRequiredService<IBomService>();
-            var nodes = bomService.Expand(code!, DateTime.Today);
+            var result = await System.Threading.Tasks.Task.Run(() =>
+            {
+                using var scope = Container.BeginScope();
+                var bomService = scope.ServiceProvider.GetRequiredService<IBomService>();
+                return bomService.Expand(code!, DateTime.Today);
+            });
 
-            txtSearchResult.Text = nodes.Count == 0
+            txtSearchResult.Text = result.Count == 0
                 ? $"未找到物料 '{code}'。"
-                : $"找到 {nodes.Count} 个节点\n根节点: {nodes[0].Description}\n根用量: {nodes[0].Quantity} {nodes[0].Unit}";
+                : $"找到 {result.Count} 个节点\n根节点: {result[0].Description}\n根用量: {result[0].Quantity} {result[0].Unit}";
         }
         catch (Exception ex)
         {

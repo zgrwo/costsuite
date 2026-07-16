@@ -140,8 +140,13 @@ public class AuthServiceTests
     [Fact]
     public void SeedAdminUser_FirstRun_CreatesAdmin()
     {
-        _userRepoMock.Setup(r => r.GetByUsername("admin")).Returns((User?)null);
-        _authService.SeedAdminUser();
+        Environment.SetEnvironmentVariable("BOM_ENV", "DEV");
+        try
+        {
+            _userRepoMock.Setup(r => r.GetByUsername("admin")).Returns((User?)null);
+            _authService.SeedAdminUser();
+        }
+        finally { Environment.SetEnvironmentVariable("BOM_ENV", null); }
         _userRepoMock.Verify(r => r.Add(It.Is<User>(u =>
             u.Username == "admin" && u.Role == UserRole.Admin)), Times.Once);
     }

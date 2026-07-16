@@ -8,6 +8,7 @@ namespace BomAddIn.Data.Repositories
     public interface IBomNodeRepository
     {
         BomNode? GetById(long id);
+        BomNode? GetById(long id, IDbConnection conn, IDbTransaction? tx);
         IEnumerable<BomNode> GetChildren(long parentMaterialId, DateTime? asOfDate = null);
         IEnumerable<BomNode> GetByMaterialId(long materialId, DateTime? asOfDate = null);
         void Add(BomNode node);

@@ -258,7 +258,7 @@ public class VarianceCalculatorEdgeCaseTests
         var results = _calc.ComparePrices(1, 0m, DateTime.Today, "CNY", 500m, DateTime.Today, "CNY");
 
         results.Should().HaveCount(1);
-        results[0].ChangePercent.Should().BeNull();
+        results[0].ChangePercent.Should().Be(double.MaxValue);
     }
 
     [Fact]

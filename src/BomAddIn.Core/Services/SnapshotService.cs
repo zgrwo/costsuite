@@ -80,7 +80,7 @@ namespace BomAddIn.Core.Services
                         + (isTruncated ? $" [TRUNCATED: {string.Join(", ", truncations)}]" : "")
                 };
 
-                _snapshotRepo.Add(snapshot);
+                _snapshotRepo.Add(snapshot, conn, tx);
                 tx.Commit();
                 return snapshot;
             }

@@ -55,6 +55,11 @@ namespace BomAddIn.Core.Services
                    && permissions.Contains(operation);
         }
 
+        /// <summary>
+        /// 权限断言。V1.0 信任边界：调用方（UDF/UI/Dashboard）负责从受信上下文（登录 Token）
+        /// 解析当前用户角色后传入。此方法本身不验证调用者身份——它依赖调用方正确传递角色。
+        /// V2.0 建议：引入 ICurrentUserContext 服务，从 Token/Session 解析角色，消除参数化角色传递。
+        /// </summary>
         public void Demand(UserRole role, BomOperation operation)
         {
             if (!Authorize(role, operation))

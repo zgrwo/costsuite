@@ -82,8 +82,8 @@
 | **Bridge** | Excel COM 封送、版本适配 | `IExcelThreadDispatcher`, `IVersionAdapter` | → BLL（仅数据对象） | Excel 主 STA |
 | **BLL** | 业务规则、流程编排 | `IBomService`, `IVarianceService`, `IAuthService` | → Variance Engine, DAL | 线程安全（无状态） |
 | **Variance Engine** | 差异计算、预警评估 | `IVarianceCalculator`, `IAlertEvaluator` | → DAL（只读） | 线程安全（纯计算） |
-| **DAL** | 数据持久化、缓存 | `IMaterialRepository`, `IBomRepository`, `IBomAnalysisProvider` | → Infrastructure | 线程安全（SQLite 连接池 + DuckDB 内存模式） |
-| **Infrastructure** | 横切关注点（日志、安全、DI） | `ILogger`, `IConfigProvider`, `IAuditLogger` | 所有层依赖 | 线程安全 |
+| **DAL** | 数据持久化、缓存 | `IMaterialRepository`, `IBomNodeRepository`, `IBomAnalysisProvider` | → Infrastructure | 线程安全（SQLite 连接池 + DuckDB 内存模式） |
+| **Infrastructure** | 横切关注点（日志、安全、DI） | `AppLogger`, `IAppConfigProvider`, `IAuditService` | 所有层依赖 | 线程安全 |
 
 ### 2.3 依赖注入设计（Sprint 0 骨架）
 
@@ -95,18 +95,18 @@ public static void AutoOpen()
 {
     var services = new ServiceCollection();
     
-    // 基础设施
-    services.AddSingleton<IConfigProvider, ConfigProvider>();
-    services.AddSingleton<ILogger>(sp => LogManager.GetCurrentClassLogger());
+    // 基础设施 — 参考 ServiceConfigurator.Configure() 查看完整注册
+    services.AddSingleton<IAppConfigProvider, AppConfigProvider>();
+    services.AddSingleton<IEncryptionProvider, AesEncryptionProvider>();
     
     // 桥接层
     services.AddSingleton<IExcelThreadDispatcher, ExcelThreadDispatcher>();
     services.AddSingleton<IVersionAdapter, VersionAdapter>();
     
     // DAL
-    services.AddSingleton<IDbConnectionFactory, DbConnectionFactory>();
+    services.AddSingleton<IDbConnectionFactory, SqliteConnectionFactory>();
     services.AddScoped<IMaterialRepository, MaterialRepository>();
-    services.AddScoped<IBomRepository, BomRepository>();
+    services.AddScoped<IBomNodeRepository, BomNodeRepository>();
     
     // BLL
     services.AddScoped<IBomService, BomService>();

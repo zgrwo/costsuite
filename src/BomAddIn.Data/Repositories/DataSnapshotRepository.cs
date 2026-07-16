@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Data.Connection;
@@ -19,6 +20,11 @@ namespace BomAddIn.Data.Repositories
         public void Add(DataSnapshot snapshot)
         {
             using var conn = _connectionFactory.CreateConnection();
+            Add(snapshot, conn, null);
+        }
+
+        public void Add(DataSnapshot snapshot, IDbConnection conn, IDbTransaction? tx)
+        {
             snapshot.Id = conn.ExecuteScalar<long>(
                 @"INSERT INTO DataSnapshots (SnapshotType, SnapshotData, CreatedAt, Description)
                   VALUES (@SnapshotType, @SnapshotData, @CreatedAt, @Description);
@@ -29,7 +35,7 @@ namespace BomAddIn.Data.Repositories
                     snapshot.SnapshotData,
                     CreatedAt = snapshot.CreatedAt.ToString("o"),
                     snapshot.Description
-                });
+                }, tx);
         }
 
         public DataSnapshot? GetById(long id)

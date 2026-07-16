@@ -20,7 +20,8 @@ namespace BomAddIn.Data.Caching
                 var value = entry.Value;
                 if (expiresAt > DateTime.UtcNow)
                     return value as T;
-                // 按 key 删除，但仅当当前值仍为同一条过期 entry（防止误删刷新后的新值）
+                // 按 key 删除过期条目。存在极小 TOCTOU 窗口（另一线程刚刷新该 key），
+                // 误删仅导致一次缓存 miss（下次访问重建），不产生数据错误。
                 _cache.TryRemove(key, out var existing);
             }
             return null;

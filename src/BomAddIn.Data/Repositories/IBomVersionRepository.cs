@@ -12,8 +12,10 @@ namespace BomAddIn.Data.Repositories
         /// <summary>在指定连接和事务中读取版本（用于 TOCTOU 安全的状态转换）</summary>
         BomVersion? GetById(long id, IDbConnection conn, IDbTransaction tx);
         void Add(BomVersion version);
+        void Add(BomVersion version, IDbConnection conn, IDbTransaction? tx);
         void UpdateState(long id, VersionState state, long? approvedBy = null);
         void UpdateState(long id, VersionState state, long? approvedBy, IDbConnection conn, IDbTransaction tx);
         BomVersion? GetLatest(long bomId);
+        BomVersion? GetLatest(long bomId, IDbConnection conn, IDbTransaction? tx);
     }
 }

@@ -41,6 +41,11 @@ namespace BomAddIn.Data.Repositories
         public void Add(BomVersion version)
         {
             using var conn = _connectionFactory.CreateConnection();
+            Add(version, conn, null);
+        }
+
+        public void Add(BomVersion version, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx)
+        {
             version.Id = conn.ExecuteScalar<long>(
                 @"INSERT INTO BomVersions (BomId, VersionNumber, State, ApprovedBy, ApprovedAt, CreatedAt)
                   VALUES (@BomId, @VersionNumber, @State, @ApprovedBy, @ApprovedAt, @CreatedAt);
@@ -53,7 +58,7 @@ namespace BomAddIn.Data.Repositories
                     version.ApprovedBy,
                     version.ApprovedAt,
                     version.CreatedAt
-                });
+                }, tx);
         }
 
         public void UpdateState(long id, VersionState state, long? approvedBy = null)
@@ -88,9 +93,14 @@ namespace BomAddIn.Data.Repositories
         public BomVersion? GetLatest(long bomId)
         {
             using var conn = _connectionFactory.CreateConnection();
+            return GetLatest(bomId, conn, null);
+        }
+
+        public BomVersion? GetLatest(long bomId, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx)
+        {
             return conn.QueryFirstOrDefault<BomVersion>(
                 "SELECT * FROM BomVersions WHERE BomId = @BomId ORDER BY VersionNumber DESC LIMIT 1",
-                new { BomId = bomId });
+                new { BomId = bomId }, tx);
         }
     }
 }

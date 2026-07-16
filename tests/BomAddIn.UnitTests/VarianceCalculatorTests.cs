@@ -148,7 +148,7 @@ public class VarianceCalculatorTests
         var results = _calculator.ComparePrices(1, 0.0m, DateTime.Today, "CNY", 100.0m, DateTime.Today, "CNY");
 
         results.Should().HaveCount(1);
-        results[0].ChangePercent.Should().BeNull();
+        results[0].ChangePercent.Should().Be(double.MaxValue);
     }
 
     [Fact]

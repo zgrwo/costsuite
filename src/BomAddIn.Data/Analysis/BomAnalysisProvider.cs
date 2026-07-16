@@ -139,8 +139,8 @@ namespace BomAddIn.Data.Analysis
                     var rootId = reader.GetInt64(0);
                     var rootCode = reader.GetString(1);
                     var rootName = reader.GetString(2);
-                    var rootUnit = reader.GetString(3);
-                    var rootCategory = reader.GetString(4);
+                    var rootUnit = reader.IsDBNull(3) ? "" : reader.GetString(3);
+                    var rootCategory = reader.IsDBNull(4) ? "" : reader.GetString(4);
 
                     visited.Add(rootId);
                     results.Add(new BomExpandedNode
@@ -190,9 +190,9 @@ namespace BomAddIn.Data.Analysis
                                 reader.GetInt64(1),
                                 reader.GetString(2),
                                 reader.GetString(3),
-                                reader.GetString(4),
+                                reader.IsDBNull(4) ? "" : reader.GetString(4),
                                 Convert.ToDouble(reader.GetValue(5)),
-                                reader.GetString(6)
+                                reader.IsDBNull(6) ? "" : reader.GetString(6)
                             ));
                         }
                     }

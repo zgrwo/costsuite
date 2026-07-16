@@ -56,6 +56,11 @@ namespace BomAddIn
                 try { _serviceProvider.GetRequiredService<DatabaseMigrator>().RunPendingMigrations(); }
                 catch (Exception ex) { ShowStartupError("迁移失败", ex); return; }
                 try { SeedDefaultData(); } catch { }
+                // 后台预热和自动维护任务（fire-and-forget，失败不阻止启动）
+                var ct = CancellationToken.None;
+                Task.Run(() => { try { WarmUpDuckDb(ct); } catch { } });
+                Task.Run(() => { try { CreateDailySnapshotIfNeeded(ct); } catch { } });
+                Task.Run(() => { try { GenerateSeedDataIfNeeded(ct); } catch { } });
                 // RegisterTaskPane 会导致 Excel 崩溃 — WPF 初始化问题，待调查
             }
             catch (Exception ex) { ShowStartupError("启动异常", ex); }

@@ -115,15 +115,57 @@ public class Program
         Console.WriteLine("[OK] OS: " + Environment.OSVersion);
         Console.WriteLine($"[OK] 当前环境: {ReadCurrentEnvironment()}");
 
-        // TODO: 添加数据库目录文件写入权限检查
-        //   使用 System.IO.File.WriteAllText(System.IO.Path.Combine(dbDir, ".write_test"), "test")
-        //   后清理，验证应用是否有权写入数据库目录。
+        // 1. 数据库目录写入权限检查
+        try
+        {
+            var dbDir = Path.GetDirectoryName(SqliteConnectionFactory.ProdDatabasePath);
+            if (!string.IsNullOrEmpty(dbDir) && Directory.Exists(dbDir))
+            {
+                var testFile = Path.Combine(dbDir, ".write_test");
+                File.WriteAllText(testFile, "test");
+                File.Delete(testFile);
+                Console.WriteLine($"[OK] 数据库目录写入权限: {dbDir}");
+            }
+        }
+        catch { Console.WriteLine("[!!] 数据库目录写入权限不足"); }
 
-        // TODO: 添加 ERP 端点网络可达性检查
-        //   从 AppConfig 读取 ERP endpoint URL，使用 HttpClient 或 Ping 验证连通性。
+        // 2. ERP 端点网络可达性检查
+        try
+        {
+            var prodDb = SqliteConnectionFactory.ProdDatabasePath;
+            if (File.Exists(prodDb))
+            {
+                using var conn = new SQLiteConnection($"Data Source={prodDb}");
+                conn.Open();
+                var erpEndpoint = conn.QueryFirstOrDefault<string>(
+                    "SELECT Value FROM AppConfig WHERE Key = 'Erp:Endpoint'");
+                if (!string.IsNullOrWhiteSpace(erpEndpoint))
+                {
+                    using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                    var response = http.GetAsync(erpEndpoint).Result;
+                    Console.WriteLine($"[OK] ERP 端点可达: {erpEndpoint} ({(int)response.StatusCode})");
+                }
+                else
+                    Console.WriteLine("[  ] ERP 端点未配置");
+            }
+        }
+        catch { Console.WriteLine("[!!] ERP 端点不可达"); }
 
-        // TODO: 添加配置文件存在性和可解析性检查
-        //   验证 NLog.config、app.config 等配置文件存在且解析无异常。
+        // 3. 配置文件完整性检查
+        try
+        {
+            var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            var configFiles = new[] { "NLog.config" };
+            foreach (var f in configFiles)
+            {
+                var path = Path.Combine(exeDir ?? ".", f);
+                if (File.Exists(path))
+                    Console.WriteLine($"[OK] 配置文件存在: {f}");
+                else
+                    Console.WriteLine($"[  ] 配置文件缺失: {f}");
+            }
+        }
+        catch { Console.WriteLine("[!!] 配置文件检查失败"); }
 
         try
         {

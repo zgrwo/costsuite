@@ -117,8 +117,18 @@ namespace BomAddIn.Core.Services
                 password = Environment.GetEnvironmentVariable("BOM_ADMIN_SEED_PASSWORD");
                 if (string.IsNullOrWhiteSpace(password))
                 {
-                    AppLogger.Warn("SeedAdminUser 未提供密码且环境变量 BOM_ADMIN_SEED_PASSWORD 未设置。使用默认密码 — 仅适用于开发环境。", typeof(AuthService));
-                    password = "admin123";
+                    // H-30: 生产环境拒绝硬编码密码回退。DEV 环境降级为 'admin123' 用于开发便利。
+                    var env = Environment.GetEnvironmentVariable("BOM_ENV") ?? "PROD";
+                    if (string.Equals(env, "DEV", StringComparison.OrdinalIgnoreCase))
+                    {
+                        AppLogger.Warn("DEV 环境：未设置 BOM_ADMIN_SEED_PASSWORD，使用默认开发密码。", typeof(AuthService));
+                        password = "admin123";
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException(
+                            "生产环境必须设置 BOM_ADMIN_SEED_PASSWORD 环境变量。请参考部署文档设置管理员初始密码。");
+                    }
                 }
             }
 

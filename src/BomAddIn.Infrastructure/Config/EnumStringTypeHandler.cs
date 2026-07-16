@@ -28,6 +28,10 @@ namespace BomAddIn.Infrastructure.Config
                     return (T)Enum.ToObject(typeof(T), intVal);
             }
 
+            // H-29: 未知枚举值警告 — 静默 fallback 对 UserRole 等安全敏感枚举可导致权限提升
+            Infrastructure.Logging.AppLogger.Warn(
+                $"类型处理器 {typeof(T).Name}: 无法解析值 '{value}'，回退到 default({typeof(T).Name}) = {default(T)}。",
+                typeof(EnumStringTypeHandler<T>));
             return default;
         }
     }

@@ -335,12 +335,12 @@ public class BomServiceEdgeCaseTests
     {
         var oldNode = new BomNode { Id = 10, Quantity = 5 };
         var newNode = new BomNode { Id = 10, Quantity = 8 };
-        _nodeRepoMock.Setup(r => r.GetById(10)).Returns(oldNode);
-        _versionRepoMock.Setup(r => r.GetLatest(10)).Returns(new BomVersion { VersionNumber = 3 });
+        _nodeRepoMock.Setup(r => r.GetById(10, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>())).Returns(oldNode);
+        _versionRepoMock.Setup(r => r.GetLatest(10, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>())).Returns(new BomVersion { VersionNumber = 3 });
 
         _service.UpdateNode(newNode, UserRole.Admin, userId: 1);
 
-        _versionRepoMock.Verify(r => r.Add(It.Is<BomVersion>(v => v.VersionNumber == 4)), Times.Once);
+        _versionRepoMock.Verify(r => r.Add(It.Is<BomVersion>(v => v.VersionNumber == 4), It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
     }
 
     [Fact]
@@ -348,12 +348,12 @@ public class BomServiceEdgeCaseTests
     {
         var oldNode = new BomNode { Id = 10, Quantity = 5 };
         var newNode = new BomNode { Id = 10, Quantity = 8 };
-        _nodeRepoMock.Setup(r => r.GetById(10)).Returns(oldNode);
-        _versionRepoMock.Setup(r => r.GetLatest(10)).Returns((BomVersion?)null); // 无历史版本
+        _nodeRepoMock.Setup(r => r.GetById(10, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>())).Returns(oldNode);
+        _versionRepoMock.Setup(r => r.GetLatest(10, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>())).Returns((BomVersion?)null); // 无历史版本
 
         _service.UpdateNode(newNode, UserRole.Admin, userId: 1);
 
-        _versionRepoMock.Verify(r => r.Add(It.Is<BomVersion>(v => v.VersionNumber == 1)), Times.Once);
+        _versionRepoMock.Verify(r => r.Add(It.Is<BomVersion>(v => v.VersionNumber == 1), It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
     }
 
     #endregion
