@@ -1,0 +1,5 @@
+SchemaVersionID,ScriptName,Applied
+1,BomAddIn.Data.Migrations.S001_InitialSchema.sql,"2026-07-16 21:58:28.2879024"
+2,BomAddIn.Data.Migrations.S002_ApprovalWorkflow.sql,"2026-07-16 21:58:28.3162958"
+3,BomAddIn.Data.Migrations.S003_PerformanceIndexes.sql,"2026-07-16 21:58:28.328825"
+4,BomAddIn.Data.Migrations.S004_EstimatesFK.sql,"2026-07-16 21:58:28.3400903"

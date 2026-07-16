@@ -1,0 +1,3 @@
+Id,Username,PasswordHash,Role,OrgId,IsActive,FailedLoginAttempts,LockoutUntil,CreatedAt,LastLoginAt
+1,admin,$2a$12$EU1K5hfYlBgwUzKocO1o5OZLOw.F8uwMLFqgnKlaRw5QEGgr37ELC,Admin,1,1,0,,"2026-07-16 13:58:28",
+2,viewer,$2a$12$j4uD9z9ZPVH/hKOeDUbEUOVZ./uevZlbaROEpo..QHQ3TVOGgv6e2,Viewer,1,1,0,,"2026-07-16 13:58:29",

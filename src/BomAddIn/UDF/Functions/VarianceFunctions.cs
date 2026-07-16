@@ -32,7 +32,8 @@ namespace BomAddIn.UDF.Functions
 
                 // 如果只提供一个物料编码，比较同一物料两个时间点
                 var codeB = string.IsNullOrWhiteSpace(itemCodeB) ? itemCodeA : itemCodeB;
-                var dateA = UdfParameterParser.ParseDateArg(asOfDateA) ?? DateTime.Today;
+                // H-28: 未提供日期时，dateA 默认 3 个月前，dateB 默认今天，确保能看到差异
+                var dateA = UdfParameterParser.ParseDateArg(asOfDateA) ?? DateTime.Today.AddMonths(-3);
                 var dateB = UdfParameterParser.ParseDateArg(asOfDateB) ?? DateTime.Today;
 
                 using var scope = Container.BeginScope();

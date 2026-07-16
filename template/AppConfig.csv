@@ -1,0 +1,7 @@
+Id,Key,Value,Description,UpdatedAt
+1,Environment:Current,DEV,"当前运行环境 (DEV/PROD)","2026-07-16 13:58:29"
+2,Sync:ErpEndpoint,https://erp-sim.example.com/api,"ERP 同步端点 URL","2026-07-16 13:58:29"
+3,Sync:AutoIntervalMinutes,30,"自动同步间隔（分钟）","2026-07-16 13:58:29"
+4,Cache:DefaultTtlMinutes,5,"默认缓存 TTL（分钟）","2026-07-16 13:58:29"
+5,Bom:MaxExpandDepth,20,"BOM 展开最大层级","2026-07-16 13:58:29"
+6,Alert:PriceChangeThreshold,0.15,"价格变化预警阈值 (15%)","2026-07-16 13:58:29"
