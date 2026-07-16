@@ -56,7 +56,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(1, VersionState.Approved);
 
-        Action act = () => _service.SubmitForReview(1, UserRole.Admin);
+        Action act = () => _service.SubmitForReview(1, UserRole.Admin, 1);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -67,7 +67,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(1, VersionState.Released);
 
-        Action act = () => _service.SubmitForReview(1, UserRole.Admin);
+        Action act = () => _service.SubmitForReview(1, UserRole.Admin, 1);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -78,7 +78,7 @@ public class ApprovalServiceEdgeCaseTests
     {
         SetupVersion(1, VersionState.Obsolete);
 
-        Action act = () => _service.SubmitForReview(1, UserRole.Admin);
+        Action act = () => _service.SubmitForReview(1, UserRole.Admin, 1);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*Invalid state transition*");
@@ -274,7 +274,7 @@ public class ApprovalServiceEdgeCaseTests
         _versionRepoMock.Setup(r => r.GetById(999, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()))
             .Returns((BomVersion?)null);
 
-        Action act = () => _service.SubmitForReview(999, UserRole.Admin);
+        Action act = () => _service.SubmitForReview(999, UserRole.Admin, 1);
 
         act.Should().Throw<InvalidOperationException>()
             .WithMessage("*not found*");

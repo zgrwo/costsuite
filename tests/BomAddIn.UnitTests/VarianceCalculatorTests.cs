@@ -67,9 +67,9 @@ public class VarianceCalculatorTests
     }
 
     [Fact]
-    public void CompareBomVersions_LevelChanged_ShouldReturnModified()
+    public void CompareBomVersions_QuantityChanged_ShouldReturnModified()
     {
-        // 同一复合键 (ItemCode|ParentMaterialId|Level) 但数量变化 → Modified
+        // 同一复合键 (ItemCode|ParentMaterialId|Level) 仅数量变化 (1.0 → 2.0)，Level 未变 → Modified
         var versionA = new List<BomExpandedNode>
         {
             new() { ItemCode = "MAT-001", Description = "Material", Quantity = 1.0, Level = 2, MaterialId = 1, ParentMaterialId = 100 }
@@ -107,7 +107,9 @@ public class VarianceCalculatorTests
     [Fact]
     public void CompareBomVersions_SameItemCode_MergedCorrectly()
     {
-        // Duplicate ItemCodes: last one wins (dictionary behavior)
+        // C-3 fix: VarianceCalculator now uses group-by-position matching, not global dictionary.
+        // Verify that duplicate ItemCodes with same (ItemCode|ParentMaterialId|Level) key
+        // are compared position-by-position within each group.
         var versionA = new List<BomExpandedNode>
         {
             new() { ItemCode = "X", Description = "X", Quantity = 5.0, Level = 1, MaterialId = 10 }

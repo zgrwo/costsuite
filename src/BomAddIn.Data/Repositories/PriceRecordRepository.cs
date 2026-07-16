@@ -48,7 +48,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             return conn.QueryFirstOrDefault<PriceRecord>(
                 @"SELECT * FROM Prices
-                  WHERE MaterialId = @MaterialId AND EffectiveDate <= @AsOfDate
+                  WHERE MaterialId = @MaterialId AND date(EffectiveDate) <= date(@AsOfDate)
                   ORDER BY EffectiveDate DESC LIMIT 1",
                 new { MaterialId = materialId, AsOfDate = asOfDate.ToString("yyyy-MM-dd") });
         }
@@ -62,7 +62,7 @@ namespace BomAddIn.Data.Repositories
                   INNER JOIN (
                       SELECT MaterialId, MAX(EffectiveDate) AS MaxDate
                       FROM Prices
-                      WHERE MaterialId IN @Ids AND EffectiveDate <= @AsOfDate
+                      WHERE MaterialId IN @Ids AND date(EffectiveDate) <= date(@AsOfDate)
                       GROUP BY MaterialId
                   ) latest ON p.MaterialId = latest.MaterialId AND p.EffectiveDate = latest.MaxDate",
                 new { Ids = materialIds, AsOfDate = asOfDate.ToString("yyyy-MM-dd") });
@@ -158,8 +158,8 @@ namespace BomAddIn.Data.Repositories
                 parameters.Add($"UnitPrice{idx}", r.UnitPrice);
                 parameters.Add($"Currency{idx}", r.Currency);
                 parameters.Add($"DataVersion{idx}", r.DataVersion);
-                parameters.Add($"EffectiveDate{idx}", r.EffectiveDate.ToString("o"));
-                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("o"));
+                parameters.Add($"EffectiveDate{idx}", r.EffectiveDate.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             }
             conn.Execute(prefix + string.Join(", ", values), parameters, tx);
         }

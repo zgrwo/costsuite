@@ -230,9 +230,10 @@ public class BomServiceEdgeCaseTests
         };
         _cacheMock.Setup(c => c.Get<List<BomExpandedNode>>(It.IsAny<string>())).Returns(nodes);
 
-        // 缓存命中 → Expand 不调 DuckDB；成本计算因 Dapper 需真实 DB 会抛异常（可预期）
-        try { _service.CalculateCost("DUP"); } catch { /* Dapper mock limitation */ }
-        Assert.True(true); // 未意外崩溃即通过
+        // 缓存命中 → Expand 不调 DuckDB；成本计算因 Dapper 需真实 DB 会抛异常（可预期）。
+        // 此为结构性检查：验证 CalculateCost 调用链不产生意外崩溃（如 NullReferenceException）。
+        // 聚合逻辑的数值正确性由集成测试及 VarianceCalculator 单元测试覆盖。
+        try { _service.CalculateCost("DUP"); } catch (ArgumentException) { /* Dapper mock limitation — ToDictionary receives null from unmocked priceRepo */ }
     }
 
     #endregion

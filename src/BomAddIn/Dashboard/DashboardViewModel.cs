@@ -225,11 +225,14 @@ namespace BomAddIn.Dashboard
                         .ToList();
                 });
 
-                BomTreeNodes.Clear();
-                foreach (var tn in treeNodes)
-                    BomTreeNodes.Add(tn);
+                _uiDispatcher.Invoke(() =>
+                {
+                    BomTreeNodes.Clear();
+                    foreach (var tn in treeNodes)
+                        BomTreeNodes.Add(tn);
 
-                StatusText = $"BOM 展开完成: {treeNodes.Sum(t => CountNodes(t))} 个节点";
+                    StatusText = $"BOM 展开完成: {treeNodes.Sum(t => CountNodes(t))} 个节点";
+                });
             }
             catch (Exception ex)
             {
@@ -248,10 +251,13 @@ namespace BomAddIn.Dashboard
 
             try
             {
-                using var scope = _services.CreateScope();
-                var sp = scope.ServiceProvider;
-                var syncService = sp.GetRequiredService<ISyncService>();
-                var result = await Task.Run(() => syncService.SyncAllAsync(UserRole.Admin));
+                var result = await Task.Run(async () =>
+                {
+                    using var scope = _services.CreateScope();
+                    var sp = scope.ServiceProvider;
+                    var syncService = sp.GetRequiredService<ISyncService>();
+                    return await syncService.SyncAllAsync(UserRole.Admin);
+                });
 
                 if (result.Success)
                     StatusText = $"同步完成: {result.TotalRecords} 条记录";

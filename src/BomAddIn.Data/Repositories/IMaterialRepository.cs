@@ -18,6 +18,7 @@ namespace BomAddIn.Data.Repositories
         void Add(Material material);
         void Add(Material material, IDbConnection conn, IDbTransaction tx);
         void Update(Material material);
+        void Update(Material material, IDbConnection conn, IDbTransaction tx);
         void Delete(long id);
     }
 }

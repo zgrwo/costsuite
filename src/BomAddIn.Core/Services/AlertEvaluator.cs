@@ -134,8 +134,22 @@ namespace BomAddIn.Core.Services
                     });
                 }
 
-                // 规则 7: BOM 数量变化 > 阈值 → Warning (H-16: 使用实际阈值)
+                // 规则 7a: BOM 数量从零变为正值（哨兵值 null）→ Warning
                 if (v.Dimension == VarianceDimension.BomStructure
+                    && v.ChangeType == VarianceChangeType.Modified
+                    && v.ChangePercent == null)
+                {
+                    alerts.Add(new Alert
+                    {
+                        Severity = AlertSeverity.Warning,
+                        Message = $"BOM 用量从零变为非零值: {v.NodeCode} ({v.OldValue} → {v.NewValue})",
+                        TriggeredRule = "BOM_QTY_FROM_ZERO",
+                        NodeCode = v.NodeCode,
+                        Dimension = "BomStructure"
+                    });
+                }
+                // 规则 7: BOM 数量变化 > 阈值 → Warning (H-16: 使用实际阈值)
+                else if (v.Dimension == VarianceDimension.BomStructure
                     && v.ChangeType == VarianceChangeType.Modified
                     && v.ChangePercent.HasValue
                     && Math.Abs(v.ChangePercent.Value) > _bomQuantityChangeThreshold)

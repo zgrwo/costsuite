@@ -39,7 +39,7 @@ namespace BomAddIn.Data.Repositories
             return conn.QueryFirstOrDefault<UserToken>(
                 @"SELECT * FROM UserTokens
                   WHERE TokenHash = @TokenHash AND IsRevoked = 0 AND ExpiresAt > @Now",
-                new { TokenHash = tokenHash, Now = DateTime.UtcNow.ToString("o") });
+                new { TokenHash = tokenHash, Now = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss.fff") });
         }
 
         public void Revoke(string tokenHash)
@@ -63,7 +63,7 @@ namespace BomAddIn.Data.Repositories
             using var conn = _connectionFactory.CreateConnection();
             return conn.Execute(
                 "DELETE FROM UserTokens WHERE ExpiresAt < @Before",
-                new { Before = before.ToString("o") });
+                new { Before = before.ToString("yyyy-MM-dd HH:mm:ss.fff") });
         }
     }
 }

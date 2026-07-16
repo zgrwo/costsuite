@@ -61,6 +61,10 @@ namespace BomAddIn
                     AppLogger.Error($"管理员种子数据创建失败。请检查 BOM_ADMIN_SEED_PASSWORD 环境变量是否已设置。详情: {ex.Message}",
                         ex, typeof(BomAddInStartup));
                 }
+                // Eagerly resolve VersionAdapter on Excel main thread to capture COM-dependent state
+                _serviceProvider.GetRequiredService<IVersionAdapter>();
+                try { StartupValidator.Validate(_serviceProvider); }
+                catch (Exception ex) { AppLogger.Warn($"StartupValidator: 启动验证失败，插件继续加载。原因: {ex.Message}", typeof(BomAddInStartup)); }
                 // 后台预热和自动维护任务（fire-and-forget，失败不阻止启动）
                 // H-31: 改为顺序执行（避免 3 并发 SQLite 写冲突），并记录失败原因
                 var ct = CancellationToken.None;

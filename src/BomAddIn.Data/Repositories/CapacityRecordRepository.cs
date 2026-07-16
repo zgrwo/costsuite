@@ -75,7 +75,7 @@ namespace BomAddIn.Data.Repositories
                 parameters.Add($"WorkCenterId{idx}", r.WorkCenterId);
                 parameters.Add($"CapacityHours{idx}", r.CapacityHours);
                 parameters.Add($"DataVersion{idx}", r.DataVersion);
-                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("o"));
+                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             }
             conn.Execute(prefix + string.Join(", ", values), parameters, tx);
         }

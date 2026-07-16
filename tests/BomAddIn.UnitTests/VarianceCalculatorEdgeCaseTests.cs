@@ -203,10 +203,9 @@ public class VarianceCalculatorEdgeCaseTests
         var results = _calc.CompareBomVersions(versionA, versionB);
 
         results.Should().ContainSingle(r => r.ChangeType == VarianceChangeType.Modified);
-        // 无穷大百分比哨兵：VarianceCalculator 内部将除以零场景的无穷大百分比映射为 100.0
-        // （参见 VarianceCalculator 中 InfinityPercentSentinel 常量的处理逻辑）
-        const double infinityPercentSentinel = 100.0;
-        results[0].ChangePercent.Should().Be(infinityPercentSentinel);
+        // R-30 fix: 0→非零数量变化使用 null 作为哨兵值（ChangePercent 为 nullable）。
+        // AlertEvaluator 检查 ChangePercent == null 并生成 "数量从零变为非零值" 告警。
+        results[0].ChangePercent.Should().BeNull();
     }
 
     [Fact]

@@ -46,6 +46,9 @@ namespace BomAddIn.UDF.Functions
                 if (nodes.Count == 0)
                     return ExcelError.ExcelErrorNA;
 
+                // 若 BOM 深度超限，BomAnalysisProvider 会在结果末尾追加 [TRUNCATED] 哨兵节点（Level=-1），
+                // 该节点作为输出中可见的警告行，用户可据此判断结果可能不完整。
+
                 // B-4 fix: 添加 Source (Make/Buy) 列，匹配规范 §5.4 的 6 列输出
                 var headers = new[] { "Level", "ItemCode", "Description", "Quantity", "Unit", "Source" };
                 return UdfParameterParser.ToRectangularArray(nodes, n => new object[]
@@ -84,10 +87,16 @@ namespace BomAddIn.UDF.Functions
                 var date = UdfParameterParser.ParseDateArg(asOfDate) ?? DateTime.Today;
                 using var scope = Container.BeginScope();
                 var service = scope.ServiceProvider.GetRequiredService<IBomService>();
+
+                // Verify item exists — empty means item not found
+                var nodes = service.Expand(itemCode, date);
+                if (nodes.Count == 0)
+                    return ExcelError.ExcelErrorNA;
+
                 var cost = service.CalculateCost(itemCode, date);
 
                 if (cost == 0)
-                    return 0.0;  // 返回零成本（正常结果），调用方可用 BOMEXPAND 确认物料存在性
+                    return 0.0;  // 返回零成本（正常结果），物料存在但成本为 0
 
                 return cost;
             }

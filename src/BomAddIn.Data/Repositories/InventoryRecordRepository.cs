@@ -88,8 +88,8 @@ namespace BomAddIn.Data.Repositories
                 parameters.Add($"WarehouseId{idx}", r.WarehouseId);
                 parameters.Add($"Quantity{idx}", r.Quantity);
                 parameters.Add($"DataVersion{idx}", r.DataVersion);
-                parameters.Add($"SnapshotDate{idx}", r.SnapshotDate.ToString("o"));
-                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("o"));
+                parameters.Add($"SnapshotDate{idx}", r.SnapshotDate.ToString("yyyy-MM-dd HH:mm:ss.fff"));
+                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             }
             conn.Execute(prefix + string.Join(", ", values), parameters, tx);
         }

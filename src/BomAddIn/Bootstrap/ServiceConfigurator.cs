@@ -123,9 +123,10 @@ namespace BomAddIn
                 var dbFactory = provider.GetRequiredService<IDbConnectionFactory>();
                 configProvider.LoadFromDb(dbFactory.ConnectionString);
             }
-            catch
+            catch (Exception ex)
             {
                 // 数据库不可用时使用硬编码默认值，不阻止启动
+                AppLogger.Warn($"InitializeConfigProvider: 数据库配置加载失败，使用默认值。原因: {ex.Message}", typeof(ServiceConfigurator));
             }
         }
 

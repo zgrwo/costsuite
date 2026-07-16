@@ -32,7 +32,8 @@
     <Reference Include="WindowsBase" />
   </ItemGroup>
 
-  <!-- 自动复制原生库到输出目录 + publish -->
+  <!-- duckdb.dll: DuckDB 原生库（C++ 编译），由 Excel-DNA .dna 文件中的 &lt;Reference Path="duckdb.dll" Pack="false" /&gt; 管理加载。
+       作为 Content 复制到输出目录以支持 Excel-DNA 的外部引用机制。Pack="false" 防止其被打包进 .xll 文件中。 -->
   <ItemGroup>
     <Content Include="duckdb.dll" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>

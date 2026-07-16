@@ -15,6 +15,10 @@ namespace BomAddIn.Core.Services
             List<BomExpandedNode> versionA,
             List<BomExpandedNode> versionB)
         {
+            // Filter out truncation sentinel nodes (Level == -1) — they are metadata, not BOM data
+            versionA = versionA.Where(n => n.Level >= 0).ToList();
+            versionB = versionB.Where(n => n.Level >= 0).ToList();
+
             var results = new List<VarianceResult>();
 
             // 使用 (ItemCode, ParentMaterialId, Level) 复合键处理同一物料在多层级出现的情况
@@ -98,7 +102,7 @@ namespace BomAddIn.Core.Services
                                 Dimension = VarianceDimension.BomStructure,
                                 OldValue = oldQty.ToString("F3"),
                                 NewValue = newQty.ToString("F3"),
-                                ChangePercent = double.IsInfinity(changePct) ? 100.0 : (double)Math.Round(changePct, 2)
+                                ChangePercent = double.IsInfinity(changePct) ? null : (double)Math.Round(changePct, 2)
                             });
                         }
                     }

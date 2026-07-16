@@ -18,11 +18,12 @@ namespace BomAddIn.Data.Migration
 
         public void RunPendingMigrations()
         {
-            // DbUp 使用 Microsoft.Data.Sqlite，移除 System.Data.SQLite 专有参数
+            // DbUp 使用 Microsoft.Data.Sqlite，移除 System.Data.SQLite 专有参数。
+            // 正则移除后可能保留尾部 ";"，TrimEnd 确保所有 SQLite provider 兼容。
             var dbUpConnStr = System.Text.RegularExpressions.Regex.Replace(
                 _connectionFactory.ConnectionString,
                 @";\s*(Version|Journal Mode|Foreign Keys|Busy Timeout|BusyTimeout)=[^;]*",
-                "");
+                "").TrimEnd(';');
 
             var upgrader = DeployChanges.To
                 .SQLiteDatabase(dbUpConnStr)

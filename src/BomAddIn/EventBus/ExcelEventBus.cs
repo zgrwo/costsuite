@@ -32,7 +32,11 @@ namespace BomAddIn.EventBus
             }
         }
 
-        /// <summary>取消订阅</summary>
+        /// <summary>
+        /// 取消订阅。注意：必须传入与 Subscribe 相同的委托实例。
+        /// Lambda 表达式每次创建新实例，因此对 Lambda 的 Unsubscribe 无效。
+        /// 建议将委托保存为字段/变量以便后续取消。
+        /// </summary>
         public void Unsubscribe<T>(Action<T> handler)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));

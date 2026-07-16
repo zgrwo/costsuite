@@ -27,8 +27,9 @@ public class SeedDataGeneratorTests : IClassFixture<SqliteTestFixture>
         var result1 = _generator.Generate(UserRole.Admin, materialCount: 150, bomNodeCount: 500, historyMonths: 2);
         result1.Skipped.Should().BeFalse();
         result1.MaterialsCreated.Should().Be(150);
-        // H-26: 树形结构下 BOM 边数 = 物料数 - 根节点数 + 共享件，180 是合理上限
-        result1.BomNodesCreated.Should().BeInRange(100, 180);
+        // H-26: 树形 BOM，150 物料生成约 7 个根节点 + 4 层子节点（扇出 3-8）+ ~15% 共享件复用
+        // 期望 BOM 边数 ≈ 物料数 + 共享件额外边 ≈ 150 + 22 = 172；150-250 允许扇出和随机波动
+        result1.BomNodesCreated.Should().BeInRange(150, 250);
 
         // 3. 生成后 HasSeedData = true
         _generator.HasSeedData().Should().BeTrue();

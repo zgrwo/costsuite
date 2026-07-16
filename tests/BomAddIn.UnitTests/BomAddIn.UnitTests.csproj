@@ -15,11 +15,31 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageReference Include="Moq" Version="4.20.70" />
     <PackageReference Include="FluentAssertions" Version="6.12.0" />
+    <!-- ExcelDna.Integration v1.8.0 targets net8.0-windows only, not plain net8.0.
+         Stub types are defined in Stubs/ExcelDnaStubs.cs for test compilation. -->
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\BomAddIn.Core\BomAddIn.Core.csproj" />
     <ProjectReference Include="..\..\src\BomAddIn.Data\BomAddIn.Data.csproj" />
     <ProjectReference Include="..\..\src\BomAddIn.Infrastructure\BomAddIn.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- DuckDB 原生库: 从 BomAddIn 项目复制到测试输出目录（BomAnalysisProvider 并发测试需 DuckDB 运行时） -->
+  <Target Name="CopyDuckDB" AfterTargets="Build">
+    <Copy SourceFiles="..\..\src\BomAddIn\duckdb.dll"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('..\..\src\BomAddIn\duckdb.dll')" />
+  </Target>
+
+  <!-- UDF source files compiled directly into test project (BomAddIn targets net472, tests target net8.0) -->
+  <ItemGroup>
+    <Compile Include="..\..\src\BomAddIn\UDF\Container.cs" Link="UDF\Container.cs" />
+    <Compile Include="..\..\src\BomAddIn\UDF\Helpers\UdfParameterParser.cs" Link="UDF\Helpers\UdfParameterParser.cs" />
+    <Compile Include="..\..\src\BomAddIn\UDF\Functions\BomQueryFunctions.cs" Link="UDF\Functions\BomQueryFunctions.cs" />
+    <Compile Include="..\..\src\BomAddIn\UDF\Functions\DataQueryFunctions.cs" Link="UDF\Functions\DataQueryFunctions.cs" />
+    <Compile Include="..\..\src\BomAddIn\UDF\Functions\SystemFunctions.cs" Link="UDF\Functions\SystemFunctions.cs" />
+    <Compile Include="..\..\src\BomAddIn\UDF\Functions\VarianceFunctions.cs" Link="UDF\Functions\VarianceFunctions.cs" />
   </ItemGroup>
 </Project>

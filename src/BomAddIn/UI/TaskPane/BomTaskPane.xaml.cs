@@ -74,15 +74,18 @@ public partial class BomTaskPane : UserControl
 
         try
         {
-            using var scope = Container.BeginScope();
-            var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
-            var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
-            // V1.0: 无会话管理，无法获取当前登录用户。回退策略：尝试查找 admin 用户，
-            // 若存在则使用其角色，否则降级为 Viewer（同步按钮仅管理员可见，此为防御性降级）。
-            // V2.0: 改用 ICurrentUserContext 从登录 Token 解析当前用户。
-            var currentUser = authService.GetCurrentUser(1); // admin 种子用户 ID
-            var callerRole = currentUser?.Role ?? UserRole.Admin; // 无用户时默认 Admin（开发环境）
-            var result = await Task.Run(() => syncService.SyncAllAsync(callerRole));
+            var result = await Task.Run(async () =>
+            {
+                using var scope = Container.BeginScope();
+                var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
+                var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
+                // V1.0: 无会话管理，无法获取当前登录用户。回退策略：尝试查找 admin 用户，
+                // 若存在则使用其角色，否则降级为 Viewer（同步按钮仅管理员可见，此为防御性降级）。
+                // V2.0: 改用 ICurrentUserContext 从登录 Token 解析当前用户。
+                var currentUser = authService.GetCurrentUser(1); // admin 种子用户 ID
+                var callerRole = currentUser?.Role ?? UserRole.Viewer; // 无用户时默认 Viewer（原则最小权限）
+                return await syncService.SyncAllAsync(callerRole);
+            });
 
             _dispatcher.Invoke(() =>
             {
@@ -149,9 +152,12 @@ public partial class BomTaskPane : UserControl
                 return bomService.Expand(code!, DateTime.Today);
             });
 
-            txtSearchResult.Text = result.Count == 0
-                ? $"未找到物料 '{code}'。"
-                : $"找到 {result.Count} 个节点\n根节点: {result[0].Description}\n根用量: {result[0].Quantity} {result[0].Unit}";
+            _dispatcher.Invoke(() =>
+            {
+                txtSearchResult.Text = result.Count == 0
+                    ? $"未找到物料 '{code}'。"
+                    : $"找到 {result.Count} 个节点\n根节点: {result[0].Description}\n根用量: {result[0].Quantity} {result[0].Unit}";
+            });
         }
         catch (Exception ex)
         {
@@ -182,16 +188,25 @@ public partial class BomTaskPane : UserControl
                     $"UI snapshot at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             });
 
-            txtSnapshotResult.Text = $"快照已创建 (Id={snapshot.Id})\n时间: {snapshot.CreatedAt:yyyy-MM-dd HH:mm:ss}";
+            _dispatcher.Invoke(() =>
+            {
+                txtSnapshotResult.Text = $"快照已创建 (Id={snapshot.Id})\n时间: {snapshot.CreatedAt:yyyy-MM-dd HH:mm:ss}";
+            });
         }
         catch (Exception ex)
         {
-            txtSnapshotResult.Text = $"快照失败: {ex.Message}";
+            _dispatcher.Invoke(() =>
+            {
+                txtSnapshotResult.Text = $"快照失败: {ex.Message}";
+            });
         }
         finally
         {
-            btnSnapshot.IsEnabled = true;
-            btnSnapshot.Content = "创建手动快照";
+            _dispatcher.Invoke(() =>
+            {
+                btnSnapshot.IsEnabled = true;
+                btnSnapshot.Content = "创建手动快照";
+            });
             Interlocked.Exchange(ref _snapshotInProgress, 0);
         }
     }

@@ -26,7 +26,7 @@ namespace BomAddIn.Data.Sync
             using var conn = _connectionFactory.CreateConnection();
             var sql = "SELECT * FROM Materials WHERE IsActive = 1";
             if (since.HasValue) sql += " AND (CreatedAt > @Since OR UpdatedAt > @Since)";
-            var result = conn.Query<Material>(sql, new { Since = since?.ToString("o") });
+            var result = conn.Query<Material>(sql, new { Since = since?.ToString("yyyy-MM-dd HH:mm:ss.fff") });
             return Task.FromResult(result);
         }
 
@@ -35,7 +35,7 @@ namespace BomAddIn.Data.Sync
             using var conn = _connectionFactory.CreateConnection();
             var sql = "SELECT * FROM Prices";
             if (since.HasValue) sql += " WHERE CreatedAt > @Since";
-            var result = conn.Query<PriceRecord>(sql, new { Since = since?.ToString("o") });
+            var result = conn.Query<PriceRecord>(sql, new { Since = since?.ToString("yyyy-MM-dd HH:mm:ss.fff") });
             return Task.FromResult(result);
         }
 
@@ -44,7 +44,7 @@ namespace BomAddIn.Data.Sync
             using var conn = _connectionFactory.CreateConnection();
             var sql = "SELECT * FROM Inventories";
             if (since.HasValue) sql += " WHERE CreatedAt > @Since";
-            var result = conn.Query<InventoryRecord>(sql, new { Since = since?.ToString("o") });
+            var result = conn.Query<InventoryRecord>(sql, new { Since = since?.ToString("yyyy-MM-dd HH:mm:ss.fff") });
             return Task.FromResult(result);
         }
 
@@ -53,7 +53,7 @@ namespace BomAddIn.Data.Sync
             using var conn = _connectionFactory.CreateConnection();
             var sql = "SELECT * FROM Orders";
             if (since.HasValue) sql += " WHERE CreatedAt > @Since";
-            var result = conn.Query<OrderRecord>(sql, new { Since = since?.ToString("o") });
+            var result = conn.Query<OrderRecord>(sql, new { Since = since?.ToString("yyyy-MM-dd HH:mm:ss.fff") });
             return Task.FromResult(result);
         }
 
@@ -62,7 +62,7 @@ namespace BomAddIn.Data.Sync
             using var conn = _connectionFactory.CreateConnection();
             var sql = "SELECT * FROM Capacities";
             if (since.HasValue) sql += " WHERE CreatedAt > @Since";
-            var result = conn.Query<CapacityRecord>(sql, new { Since = since?.ToString("o") });
+            var result = conn.Query<CapacityRecord>(sql, new { Since = since?.ToString("yyyy-MM-dd HH:mm:ss.fff") });
             return Task.FromResult(result);
         }
 

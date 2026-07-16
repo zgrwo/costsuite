@@ -26,7 +26,7 @@ namespace BomAddIn.Data.Repositories
             if (dueBefore.HasValue)
             {
                 sql += " AND DueDate <= @DueBefore";
-                parameters.Add("DueBefore", dueBefore.Value.ToString("o"));
+                parameters.Add("DueBefore", dueBefore.Value.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             }
             sql += " ORDER BY DueDate";
             return conn.Query<OrderRecord>(sql, parameters).ToList();
@@ -83,9 +83,9 @@ namespace BomAddIn.Data.Repositories
                 parameters.Add($"OrgId{idx}", r.OrgId);
                 parameters.Add($"MaterialId{idx}", r.MaterialId);
                 parameters.Add($"OrderQty{idx}", r.OrderQty);
-                parameters.Add($"DueDate{idx}", r.DueDate.ToString("o"));
+                parameters.Add($"DueDate{idx}", r.DueDate.ToString("yyyy-MM-dd HH:mm:ss.fff"));
                 parameters.Add($"DataVersion{idx}", r.DataVersion);
-                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("o"));
+                parameters.Add($"CreatedAt{idx}", r.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss.fff"));
             }
             conn.Execute(prefix + string.Join(", ", values), parameters, tx);
         }

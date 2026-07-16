@@ -179,7 +179,16 @@ namespace BomAddIn.Core.Services
                     try
                     {
                         foreach (var m in materialsList)
-                            _materialRepo.Add(m, conn, tx);
+                        {
+                            var existing = _materialRepo.GetByCode(m.OrgId, m.Code, conn, tx);
+                            if (existing == null)
+                                _materialRepo.Add(m, conn, tx);
+                            else
+                            {
+                                m.Id = existing.Id;
+                                _materialRepo.Update(m, conn, tx);
+                            }
+                        }
 
                         _priceRepo.BulkUpsert(pricesList, conn, tx);
                         _inventoryRepo.BulkUpsert(inventoriesList, conn, tx);

@@ -110,6 +110,15 @@ namespace BomAddIn.Data.Repositories
                 material);
         }
 
+        public void Update(Material material, IDbConnection conn, IDbTransaction tx)
+        {
+            conn.Execute(
+                @"UPDATE Materials SET Code=@Code, Name=@Name, Spec=@Spec, Unit=@Unit,
+                  Category=@Category, IsActive=@IsActive, UpdatedAt=@UpdatedAt
+                  WHERE Id=@Id AND OrgId=@OrgId",
+                material, tx);
+        }
+
         /// <summary>高效 COUNT 查询 — 避免 GetAll().Count() 拉取全量数据 (v2 M-29)</summary>
         public int GetCount(long orgId)
         {

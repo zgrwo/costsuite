@@ -57,9 +57,9 @@ public class ApprovalServiceTests
         var version = new BomVersion { Id = 1, State = VersionState.Draft };
         _versionRepoMock.Setup(r => r.GetById(1)).Returns(version);
 
-        var result = _service.SubmitForReview(1, UserRole.Admin, null);
+        var result = _service.SubmitForReview(1, UserRole.Admin, 1);
 
-        _versionRepoMock.Verify(r => r.UpdateState(1, VersionState.PendingReview, null,
+        _versionRepoMock.Verify(r => r.UpdateState(1, VersionState.PendingReview, 1,
             It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()), Times.Once);
         result.Should().NotBeNull();
     }
@@ -130,7 +130,7 @@ public class ApprovalServiceTests
     {
         _versionRepoMock.Setup(r => r.GetById(999)).Returns((BomVersion?)null);
 
-        Action act = () => _service.SubmitForReview(999, UserRole.Admin, null);
+        Action act = () => _service.SubmitForReview(999, UserRole.Admin, 1);
         act.Should().Throw<InvalidOperationException>().WithMessage("*not found*");
     }
 

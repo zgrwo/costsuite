@@ -14,6 +14,10 @@ namespace BomAddIn.Core.Services
     /// <remarks>
     /// 支持中英文表头模糊匹配。DataTable 从 Excel/CSV 文件解析后传入。
     /// 文件解析在 UI 层完成（EPPlus/ExcelDataReader），Core 层只做业务校验。
+    /// <para><b>ImportMaterials</b>: 逐行导入 + 跳过错误行策略（skip-bad-rows）—
+    /// 单行格式错误不影响其他行，事务提交成功导入的行。</para>
+    /// <para><b>ImportBomStructures</b>: 全有或全无策略（all-or-nothing）—
+    /// 因循环检测依赖完整边集，任何错误导致整体回滚。</para>
     /// </remarks>
     public class BomExcelImporter : IBomExcelImporter
     {

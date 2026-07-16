@@ -74,11 +74,21 @@ namespace BomAddIn.Bridge
             {
                 try
                 {
-                    tcs.SetResult(action());
+                    if (!tcs.Task.IsCompleted)
+                    {
+                        bool set = tcs.TrySetResult(action());
+                        if (!set)
+                            System.Diagnostics.Debug.WriteLine("[ExcelThreadDispatcher] Result discarded: TCS already completed (timeout likely).");
+                    }
                 }
                 catch (Exception ex)
                 {
-                    tcs.SetException(ex);
+                    if (!tcs.Task.IsCompleted)
+                    {
+                        bool set = tcs.TrySetException(ex);
+                        if (!set)
+                            System.Diagnostics.Debug.WriteLine($"[ExcelThreadDispatcher] Exception discarded: TCS already completed (timeout likely). Error: {ex.Message}");
+                    }
                 }
             });
 
@@ -89,6 +99,7 @@ namespace BomAddIn.Bridge
                 {
                     if (tcs.Task.IsCompleted)
                         return tcs.Task.Result;
+                    tcs.TrySetCanceled();
                     throw new TimeoutException("Excel COM 异步调用超时（30 秒）。Excel 主线程可能正忙或已断开。");
                 });
         }

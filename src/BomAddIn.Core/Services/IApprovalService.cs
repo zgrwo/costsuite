@@ -8,7 +8,7 @@ namespace BomAddIn.Core.Services
     public interface IApprovalService
     {
         /// <summary>提交审批 Draft → PendingReview</summary>
-        BomVersion SubmitForReview(long versionId, UserRole callerRole, long? userId = null);
+        BomVersion SubmitForReview(long versionId, UserRole callerRole, long userId);
 
         /// <summary>审批通过 PendingReview → Approved</summary>
         BomVersion Approve(long versionId, long userId, UserRole callerRole, string? comment = null);

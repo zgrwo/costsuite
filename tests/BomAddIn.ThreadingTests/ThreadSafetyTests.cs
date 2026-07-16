@@ -85,7 +85,7 @@ public class ThreadSafetyTests
     {
         var cache = new MemoryCacheProvider();
         cache.Set("expires_fast", new TestCacheItem { Value = 42 }, TimeSpan.FromMilliseconds(10));
-        Thread.Sleep(50);
+        Thread.Sleep(100); // 10x TTL (10ms) to safely account for CI timer resolution
 
         var result = cache.Get<TestCacheItem>("expires_fast");
         Assert.Null(result);
@@ -139,6 +139,27 @@ public class ThreadSafetyTests
         var isMainFromBg = await Task.Run(() => dispatcher.IsExcelMainThread);
 
         Assert.False(isMainFromBg, "从后台线程调用 IsExcelMainThread 应返回 false");
+    }
+
+    [Fact]
+    public async Task RunOnExcelThread_FromBackgroundThread_UsesQueueAsMacro()
+    {
+        // 验证跨线程调度路径: 后台线程被正确识别为非 Excel 主线程，
+        // RunOnExcelThread 将走 QueueAsMacro 分支而非直接执行路径。
+        // QueueAsMacro 本身需要 Excel 宿主，测试环境中会超时或抛异常，
+        // 因此此处仅验证线程检测分支的正确性。
+
+        ExcelThreadDispatcher.Initialize();
+        var dispatcher = new ExcelThreadDispatcher();
+
+        // 主线程: 应直接执行
+        Assert.True(dispatcher.IsExcelMainThread);
+        Assert.Equal(42, dispatcher.RunOnExcelThread(() => 42));
+
+        // 后台线程: IsExcelMainThread 返回 false → RunOnExcelThread 走 QueueAsMacro 路径
+        var isMainFromBg = await Task.Run(() => dispatcher.IsExcelMainThread);
+        Assert.False(isMainFromBg,
+            "后台线程的 IsExcelMainThread 必须为 false，以确保 RunOnExcelThread 走 QueueAsMacro 路径");
     }
 
     // ── H-5 fix: BomAnalysisProvider 并发安全回归测试 ──

@@ -78,8 +78,9 @@ namespace BomAddIn.UDF.Functions
                 var inventoryRepo = sp.GetRequiredService<IInventoryRecordRepository>();
                 var warehouse = (warehouseId as string) ?? "MAIN";
 
-                // H-23: 在数据库层完成过滤和排序，避免拉取全量快照到内存
-                var records = inventoryRepo.GetSnapshot(material.Id, DateTime.Today);
+                // 从数据库获取物料全量快照，在内存中按仓库过滤和排序
+                // V1.0 限制: 未在数据库层过滤，大数据量时建议改为 SQL WHERE 子句
+                var records = inventoryRepo.GetSnapshot(material.Id, DateTime.UtcNow.Date);
                 var match = records
                     .Where(r => r.WarehouseId == warehouse)
                     .OrderByDescending(r => r.SnapshotDate)

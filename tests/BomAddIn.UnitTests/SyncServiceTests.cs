@@ -122,6 +122,32 @@ public class SyncServiceTests
         result.Should().Be(expected);
     }
 
+    [Fact]
+    public void GetLastSyncTime_DateBoundary_HandlesSameDayCorrectly()
+    {
+        // 同日不同时刻 — 时间分量应完整保留，确保同日第一次同步不被"已同步"跳过
+        var morningSync = new DateTime(2026, 7, 15, 8, 0, 0, DateTimeKind.Utc);
+        _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns(morningSync);
+        var result1 = _service.GetLastSyncTime();
+        result1.Should().Be(morningSync);
+        result1!.Value.Hour.Should().Be(8);
+        result1!.Value.Kind.Should().Be(DateTimeKind.Utc);
+
+        var eveningSync = new DateTime(2026, 7, 15, 20, 30, 0, DateTimeKind.Utc);
+        _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns(eveningSync);
+        var result2 = _service.GetLastSyncTime();
+        result2.Should().Be(eveningSync);
+        result2!.Value.Hour.Should().Be(20);
+
+        // 边界：午夜 — 跨日但时间分量为 00:00:00
+        var midnightSync = new DateTime(2026, 7, 16, 0, 0, 0, DateTimeKind.Utc);
+        _syncLogRepoMock.Setup(r => r.GetLastSyncCompletedAt()).Returns(midnightSync);
+        var result3 = _service.GetLastSyncTime();
+        result3.Should().Be(midnightSync);
+        result3!.Value.Hour.Should().Be(0);
+        result3!.Value.Day.Should().Be(16);
+    }
+
     // ── H-29: 离线→在线转换 + 并发编辑测试 ──
 
     [Fact]
@@ -172,5 +198,48 @@ public class SyncServiceTests
             var result = await _service.SyncAllAsync(UserRole.Admin);
             result.Should().NotBeNull();
         }
+    }
+
+    // ── H-29 补充: 离线→在线数据完整性回归测试 ──
+
+    [Fact]
+    public async Task SyncAll_OfflineToOnline_DataIntegrityCheck()
+    {
+        // Arrange: 第1次离线
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(false);
+        var offlineResult = await _service.SyncAllAsync(UserRole.Admin);
+        offlineResult.Success.Should().BeFalse();
+
+        // 第2次在线 — 携带真实数据
+        var materials = new List<Material>
+        {
+            new Material { OrgId = 1, Code = "MAT-001", Name = "Test Material", Unit = "PC" }
+        };
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(true);
+        _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(materials);
+        _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<PriceRecord>());
+        _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<InventoryRecord>());
+        _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<OrderRecord>());
+        _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<CapacityRecord>());
+
+        // Act
+        var onlineResult = await _service.SyncAllAsync(UserRole.Admin);
+
+        // Assert: 数据通过事务写入，结果未损坏
+        onlineResult.Success.Should().BeTrue();
+        onlineResult.TotalRecords.Should().Be(1);
+        // 验证物料数据正确传给 Repository
+        _materialRepoMock.Verify(
+            r => r.GetByCode(1, "MAT-001", It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()),
+            Times.Once);
+        _materialRepoMock.Verify(
+            r => r.Add(It.Is<Material>(m => m.Code == "MAT-001" && m.Name == "Test Material"),
+                It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()),
+            Times.Once);
     }
 }

@@ -165,6 +165,8 @@ namespace BomAddIn.Infrastructure.Security
             {
                 AppLogger.Error($"DEK 持久化失败（密钥仅存在于内存中，重启后数据将不可读）: {ex.Message}",
                     ex, typeof(AesEncryptionProvider));
+                throw new InvalidOperationException(
+                    "DEK 持久化失败。Windows 用户凭证变更或磁盘权限不足导致加密数据无法保护。请检查 %LocalAppData%/BomAddIn/Data/ 目录写入权限。", ex);
             }
 
             return newDek;

@@ -40,7 +40,7 @@ namespace BomAddIn.Core.Services
             _authz = authz;
         }
 
-        public BomVersion SubmitForReview(long versionId, UserRole callerRole, long? userId = null)
+        public BomVersion SubmitForReview(long versionId, UserRole callerRole, long userId)
         {
             _authz.Demand(callerRole, BomOperation.BomApprove);
             return Transition(versionId, VersionState.PendingReview, userId);

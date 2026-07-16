@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using BomAddIn.Core.Services;
 using BomAddIn.Data.Caching;
 using BomAddIn.Data.Repositories;
@@ -101,6 +103,47 @@ public class ConfigServiceTests : IClassFixture<SqliteTestFixture>
         service.WarmUp();
         var value = service.GetValue("wu_key", "should_not_return_this");
         value.Should().Be("wu_val");
+    }
+
+    // ── H-29 补充: 并发 upsert 回归测试 ──
+
+    [Fact]
+    public async Task SetValue_ConcurrentUpsert_HandlesCorrectly()
+    {
+        var cache = new MemoryCacheProvider();
+        var repo = new AppConfigRepository(_fixture);
+        var service = CreateService(repo, cache);
+        const string key = "concurrent_upsert_key";
+
+        // 并行对同一 key 执行 upsert — 验证最终值不为损坏数据
+        Exception? error1 = null;
+        Exception? error2 = null;
+        var t1 = Task.Run(() =>
+        {
+            try { service.SetValue(key, "value_a", UserRole.Admin); }
+            catch (Exception ex) { error1 = ex; }
+        });
+        var t2 = Task.Run(() =>
+        {
+            try { service.SetValue(key, "value_b", UserRole.Admin); }
+            catch (Exception ex) { error2 = ex; }
+        });
+
+        await Task.WhenAll(t1, t2);
+
+        var result = service.GetValue(key);
+        if (error1 == null && error2 == null)
+        {
+            // 两个写入均成功 → 最终值为最后完成写入的值
+            (result == "value_a" || result == "value_b").Should().BeTrue(
+                $"并发 upsert 后值应为 'value_a' 或 'value_b'，实际: '{result}'");
+        }
+        else
+        {
+            // SQLite busy (默认 busy_timeout=0) → 一个写入失败
+            // 但最终值不应为垃圾数据
+            result.Should().NotBeNull("即使并发写入部分失败，数据不应损坏");
+        }
     }
 
     /// <summary>集成测试用的宽松授权 stub — 所有权限检查通过</summary>

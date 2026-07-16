@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using BomAddIn.Infrastructure.Security;
 using FluentAssertions;
@@ -78,5 +80,64 @@ public class AesEncryptionProviderTests
 
         Action act = () => provider.Protect(null!);
         act.Should().Throw<ArgumentNullException>();
+    }
+
+    // ── H-8 补充: DEK 文件损坏 + 密文篡改回归测试 ──
+
+    [Fact]
+    public void Unprotect_TamperedData_ThrowsCryptographicException()
+    {
+        // Arrange: 生成合法密文
+        var provider = new AesEncryptionProvider(_dpapi);
+        var original = Encoding.UTF8.GetBytes("sensitive_price_data_2026");
+        var ciphertext = provider.Protect(original);
+
+        // Act: 篡改密文末字节（PKCS7 填充验证依赖末字节 → 篡改必触发异常）
+        // 注意: 篡改 IV 首字节只破坏第一块明文，不影响 PKCS7 填充尾块
+        ciphertext[ciphertext.Length - 1] ^= 0xFF;
+
+        Action act = () => provider.Unprotect(ciphertext);
+
+        // Assert: 篡改后解密应抛出 CryptographicException
+        act.Should().Throw<CryptographicException>();
+    }
+
+    [Fact]
+    public void Constructor_DekFileTruncated_ThrowsCryptographicException()
+    {
+        // AesEncryptionProvider 构造函数从固定路径加载 DEK 文件:
+        //   %LocalAppData%/BomAddIn/Data/aes-dek.dat
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var keyDir = Path.Combine(appData, "BomAddIn", "Data");
+        var keyFile = Path.Combine(keyDir, "aes-dek.dat");
+
+        // 保存已有合法 DEK 文件（如果存在），测试结束后恢复
+        byte[]? originalContent = null;
+        if (File.Exists(keyFile))
+        {
+            originalContent = File.ReadAllBytes(keyFile);
+            File.Delete(keyFile);
+        }
+
+        try
+        {
+            // 写入截断 DEK 文件（仅 8 字节 — 非有效 DPAPI blob）
+            Directory.CreateDirectory(keyDir);
+            File.WriteAllBytes(keyFile, new byte[] { 0xDE, 0xAD, 0xBE, 0xEF, 0x00, 0x01, 0x02, 0x03 });
+
+            // Act: 构造 AesEncryptionProvider — LoadOrCreateDek 读取受损 DEK 应抛出
+            Action act = () => new AesEncryptionProvider(_dpapi);
+
+            // Assert: DPAPI 解密非法 blob 应抛出 CryptographicException
+            act.Should().Throw<CryptographicException>();
+        }
+        finally
+        {
+            // 清理测试文件并恢复原始 DEK
+            if (File.Exists(keyFile))
+                File.Delete(keyFile);
+            if (originalContent != null)
+                File.WriteAllBytes(keyFile, originalContent);
+        }
     }
 }

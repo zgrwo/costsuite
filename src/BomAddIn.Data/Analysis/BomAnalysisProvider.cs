@@ -165,6 +165,8 @@ namespace BomAddIn.Data.Analysis
                 for (int level = 1; level <= maxLevel && currentParentIds.Count > 0; level++)
                 {
                     // 批量查询当前层所有父节点的子节点
+                    // 安全说明：currentParentIds 为 List&lt;long&gt;（Int64 数据库主键），非用户输入，无注入风险。
+                    // DuckDB.NET v1.0.2 不支持数组/列表原生参数 — 升级后可替换为参数化查询。
                     var parentIdList = string.Join(", ", currentParentIds);
                     var children = new List<(long childId, long parentId, string code, string name,
                         string unit, double qty, string category)>();
@@ -228,13 +230,27 @@ namespace BomAddIn.Data.Analysis
                     currentParentIds = nextParentIds;
                 }
 
-                // C-19: 深度达到上限时记录警告
-                if (results.Any(n => n.Level >= 19))
+                // C-19: 深度达到上限时记录警告 + 向结果插入截断哨兵
+                if (currentParentIds.Count > 0)
                 {
                     Infrastructure.Logging.AppLogger.Warn(
                         $"BOM \"{itemCode}\" 展开达到深度上限 ({maxLevel} 层)，结果可能不完整。" +
-                        $"最大层级: {results.Max(n => n.Level)}，总节点数: {results.Count}",
+                        $"最大层级: {maxLevel}，总节点数: {results.Count}",
                         typeof(BomAnalysisProvider));
+
+                    // 插入截断哨兵节点，UDF/BLL 层可以检测此节点向用户发出警告
+                    results.Add(new BomExpandedNode
+                    {
+                        Level = -1,
+                        MaterialId = -1,
+                        ParentMaterialId = null,
+                        ItemCode = "[TRUNCATED]",
+                        Description = $"BOM depth exceeded {maxLevel} levels. Results incomplete.",
+                        Quantity = 0,
+                        Unit = "",
+                        Source = "System",
+                        VersionState = ""
+                    });
                 }
 
                 return results;

@@ -52,7 +52,9 @@ namespace BomAddIn.Core.Services
 
                 // C-8 fix: 检测截断并记录警告，在快照 description 中标记不完整
                 var truncations = new List<string>();
-                // 当 Count == maxRowsPerTable 时也可能被截断（SQL LIMIT 正好返回上限条数），使用 >= 确保标记
+                // 使用 >= 作为保守截断判断：当 Count == maxRowsPerTable 时，LIMIT 恰好返回上限行数，
+                // 实际可能有更多行未被捕获。此判定可能产生误报（恰好 50000 行的大概率是完整数据），
+                // 但漏报的风险更高（大数据集下丢失数据导致 Compare() 产生误导结果）。
                 if (materials.Count >= maxRowsPerTable) truncations.Add("Materials");
                 if (bomStructures.Count >= maxRowsPerTable) truncations.Add("BomStructures");
                 if (bomVersions.Count >= maxRowsPerTable) truncations.Add("BomVersions");
@@ -163,7 +165,7 @@ namespace BomAddIn.Core.Services
             sb.AppendLine("  \"capturedAt\": \"" + DateTime.UtcNow.ToString("o") + "\",");
 
             AppendTable(sb, "Materials", materials, m =>
-                $"\"{m.Code}\":{{\"id\":{m.Id},\"orgId\":{m.OrgId},\"name\":\"{Escape(m.Name)}\",\"spec\":\"{Escape(m.Spec)}\",\"unit\":\"{Escape(m.Unit)}\",\"category\":\"{Escape(m.Category)}\"}}");
+                $"\"{Escape(m.Code)}\":{{\"id\":{m.Id},\"orgId\":{m.OrgId},\"name\":\"{Escape(m.Name)}\",\"spec\":\"{Escape(m.Spec)}\",\"unit\":\"{Escape(m.Unit)}\",\"category\":\"{Escape(m.Category)}\"}}");
 
             sb.AppendLine(",");
             AppendTable(sb, "BomStructures", bomStructures, b =>
