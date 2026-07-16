@@ -163,7 +163,8 @@ public class Program
 
             // 生成种子数据
             Console.WriteLine("  [2/2] 生成数据...");
-            var generator = new SeedDataGenerator(factory, new AuthorizationService());
+            var generator = new SeedDataGenerator(factory, new AuthorizationService(),
+                new BomAddIn.Infrastructure.Security.BCryptPasswordHasher());
             var watch = System.Diagnostics.Stopwatch.StartNew();
 
             var result = generator.Generate(UserRole.Admin, materialCount, bomNodeCount, months);
@@ -180,10 +181,16 @@ public class Program
             else
             {
                 Console.WriteLine($"  [OK] 完成! 耗时 {watch.Elapsed.TotalSeconds:F1}s");
-                Console.WriteLine($"       物料: {result.MaterialsCreated:N0}");
-                Console.WriteLine($"       BOM节点: {result.BomNodesCreated:N0}");
-                Console.WriteLine($"       价格记录: {result.PriceRecordsCreated:N0}");
-                Console.WriteLine($"       库存记录: {result.InventoryRecordsCreated:N0}");
+                Console.WriteLine($"       物料:       {result.MaterialsCreated:N0}");
+                Console.WriteLine($"       供应商:     {result.SuppliersCreated:N0}");
+                Console.WriteLine($"       BOM节点:    {result.BomNodesCreated:N0}");
+                Console.WriteLine($"       BOM版本:    {result.BomVersionsCreated:N0}");
+                Console.WriteLine($"       价格记录:   {result.PriceRecordsCreated:N0}");
+                Console.WriteLine($"       库存记录:   {result.InventoryRecordsCreated:N0}");
+                Console.WriteLine($"       订单:       {result.OrdersCreated:N0}");
+                Console.WriteLine($"       产能:       {result.CapacitiesCreated:N0}");
+                Console.WriteLine($"       成本估算:   {result.EstimatesCreated:N0}");
+                Console.WriteLine($"       同步日志:   {result.SyncLogsCreated:N0}");
             }
         }
         catch (Exception ex)

@@ -25,6 +25,13 @@ namespace BomAddIn.Core.Services
         public int BomNodesCreated { get; set; }
         public int PriceRecordsCreated { get; set; }
         public int InventoryRecordsCreated { get; set; }
+        public int SuppliersCreated { get; set; }
+        public int BomVersionsCreated { get; set; }
+        public int OrdersCreated { get; set; }
+        public int CapacitiesCreated { get; set; }
+        public int EstimatesCreated { get; set; }
+        public int SyncLogsCreated { get; set; }
+        public int DataSnapshotsCreated { get; set; }
         public bool Skipped { get; set; }
         public string? ErrorMessage { get; set; }
     }

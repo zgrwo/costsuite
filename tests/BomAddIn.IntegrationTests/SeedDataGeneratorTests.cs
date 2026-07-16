@@ -13,7 +13,8 @@ public class SeedDataGeneratorTests : IClassFixture<SqliteTestFixture>
     public SeedDataGeneratorTests(SqliteTestFixture fixture)
     {
         _fixture = fixture;
-        _generator = new SeedDataGenerator(fixture, new AllowAllAuthz());
+        _generator = new SeedDataGenerator(fixture, new AllowAllAuthz(),
+            new BomAddIn.Infrastructure.Security.BCryptPasswordHasher());
     }
 
     [Fact]
@@ -26,7 +27,8 @@ public class SeedDataGeneratorTests : IClassFixture<SqliteTestFixture>
         var result1 = _generator.Generate(UserRole.Admin, materialCount: 150, bomNodeCount: 500, historyMonths: 2);
         result1.Skipped.Should().BeFalse();
         result1.MaterialsCreated.Should().Be(150);
-        result1.BomNodesCreated.Should().Be(500);
+        // H-26: 树形结构下 BOM 边数 = 物料数 - 根节点数 + 共享件，180 是合理上限
+        result1.BomNodesCreated.Should().BeInRange(100, 180);
 
         // 3. 生成后 HasSeedData = true
         _generator.HasSeedData().Should().BeTrue();
