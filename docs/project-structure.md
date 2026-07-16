@@ -40,8 +40,9 @@ BomAddIn.sln
 ├── tools/                                  ← 独立工具
 │   └── BomAddIn.Diagnostic/                ← 环境诊断工具（控制台应用）
 │
-├── db/                                     ← 数据库脚本
-│   └── migrations/                         ← DbUp 迁移 SQL（有序命名）
+├── database/                                ← 数据库文件 (dev + prod 环境隔离)
+│   ├── dev/
+│   └── prod/
 │
 ├── build/                                  ← 构建与打包
 │   ├── *.dna                               ← Excel-DNA 配置文件
@@ -360,18 +361,171 @@ tests/
     └── VarianceCalculationBenchmarks.cs
 ```
 
-### 4.6 `db/` — 数据库迁移
+### 4.6 `database/` — 数据库文件
 
 ```
-db/
-└── migrations/
-    ├── S001_InitialSchema.sql               # Sprint 1: 全部 15 张表 DDL
-    ├── S002_SeedMaterials.sql               # Sprint 1: 10 万物料种子数据
-    ├── S003_SeedBomStructures.sql            # Sprint 1: 50 万 BOM 节点种子数据
-    ├── S004_SeedHistoricalData.sql           # Sprint 1: 12 个月历史快照
-    ├── S005_AddIndexes.sql                   # Sprint 5: 性能索引优化
-    └── ...                                   # 后续迁移按 S+序号 命名
+database/
+├── dev/
+│   └── bom_data_dev.sqlite                    # 开发环境数据库
+└── prod/
+    └── bom_data.sqlite                        # 生产环境数据库
 ```
+
+> **说明**: DbUp 迁移脚本位于 `src/BomAddIn.Data/Migrations/`，由 `DatabaseMigrator` 自动执行。
+
+---
+
+## 4.7 数据库关系图 (ER Diagram)
+
+### 4.7.1 核心业务表
+
+```text
+┌──────────────────────┐        ┌──────────────────────┐
+│      Suppliers       │        │      Materials       │
+│──────────────────────│        │──────────────────────│
+│ Id            PK     │        │ Id            PK     │
+│ OrgId                │        │ OrgId                │
+│ Code           UQ    │        │ Code           UQ    │
+│ Name                 │        │ Name                 │
+│ Contact              │        │ Spec                 │
+│ Rating               │        │ Unit                 │
+│ CreatedAt            │        │ Category             │
+│ UpdatedAt            │        │ IsActive             │
+└──────────┬───────────┘        │ CreatedAt            │
+           │                    │ UpdatedAt            │
+           │                    └────┬──────┬──────┬───┘
+           │                         │      │      │
+           │              ┌──────────┘      │      └──────────────┐
+           │              │                 │                     │
+           ▼              ▼                 ▼                     ▼
+┌──────────────────┐ ┌──────────────────┐ ┌──────────────────┐ ┌──────────────┐
+│     Prices       │ │  BomStructures   │ │   Inventories    │ │    Orders    │
+│──────────────────│ │──────────────────│ │──────────────────│ │──────────────│
+│ Id         PK    │ │ Id         PK    │ │ Id         PK    │ │ Id     PK    │
+│ OrgId            │ │ OrgId            │ │ OrgId            │ │ OrgId        │
+│ MaterialId FK ───┘ │ ParentMaterialId │ │ MaterialId FK ───┘ │ MaterialId   │
+│ SupplierId FK ────→│   FK → Materials │ │ WarehouseId      │ │ OrderQty     │
+│ UnitPrice         │ │ ChildMaterialId  │ │ Quantity         │ │ DueDate      │
+│ Currency          │ │   FK → Materials │ │ DataVersion      │ │ DataVersion  │
+│ DataVersion       │ │ Quantity         │ │ SnapshotDate     │ │ CreatedAt    │
+│ EffectiveDate     │ │ Position         │ │ CreatedAt        │ └──────────────┘
+│ CreatedAt         │ │ ScrapRate        │ └──────────────────┘
+└──────────────────┘ │ BomViewType      │
+                     │ Level            │        ┌──────────────────────┐
+                     │ ValidFrom        │        │     BomVersions      │
+                     │ ValidTo          │        │──────────────────────│
+                     │ VersionState     │        │ Id            PK     │
+                     │ CreatedAt        │───────→│ BomId         FK ───┘
+                     │ UpdatedAt        │        │ VersionNumber        │
+                     └──────────────────┘        │ State                │
+                                                 │ ApprovedBy    FK ──┐
+┌──────────────────┐                             │ ApprovedAt          │
+│    Capacities    │                             │ CreatedAt           │
+│──────────────────│                             └──────────┬──────────┘
+│ Id         PK    │                                        │
+│ OrgId            │                             ┌──────────▼──────────┐
+│ WorkCenterId     │                             │     Estimates       │
+│ CapacityHours    │                             │─────────────────────│
+│ DataVersion      │                             │ Id           PK     │
+│ CreatedAt        │                             │ OrgId               │
+└──────────────────┘                             │ BomVersionId FK ───┘
+                                                 │ TotalCost           │
+                                                 │ LaborHours          │
+                                                 │ Notes               │
+                                                 │ CreatedAt           │
+                                                 │ UpdatedAt           │
+                                                 └─────────────────────┘
+```
+
+### 4.7.2 用户与审计表
+
+```text
+┌──────────────────────┐
+│       Users          │
+│──────────────────────│
+│ Id            PK     │
+│ Username      UQ     │
+│ PasswordHash         │
+│ Role                 │
+│ OrgId                │
+│ IsActive             │
+│ FailedLoginAttempts  │
+│ LockoutUntil         │
+│ CreatedAt            │
+│ LastLoginAt          │
+└────┬──────────┬──────┘
+     │          │
+     │          └──────────────────────┐
+     ▼                                 ▼
+┌──────────────────┐          ┌──────────────────┐
+│   UserTokens     │          │    AuditLogs     │
+│──────────────────│          │──────────────────│
+│ Id         PK    │          │ Id         PK    │
+│ UserId     FK ───┘          │ UserId     FK ───┘
+│ TokenHash        │          │ Action            │
+│ ExpiresAt        │          │ TableName         │
+│ IsRevoked        │          │ RecordId          │
+│ CreatedAt        │          │ OldValues (JSON)  │
+└──────────────────┘          │ NewValues (JSON)  │
+                              │ Timestamp         │
+                              └───────────────────┘
+
+┌──────────────────┐          ┌──────────────────────┐
+│    SyncLogs      │          │     AppConfig        │
+│──────────────────│          │──────────────────────│
+│ Id         PK    │          │ Id            PK     │
+│ SyncType         │          │ Key            UQ    │
+│ StartedAt        │          │ Value                │
+│ CompletedAt      │          │ Description          │
+│ RecordsProcessed │          │ UpdatedAt            │
+│ Status           │          └──────────────────────┘
+│ ErrorMessage     │
+└──────────────────┘          ┌──────────────────────┐
+                              │   DataSnapshots      │
+┌──────────────────────┐      │──────────────────────│
+│   SchemaVersions     │      │ Id            PK     │
+│──────────────────────│      │ SnapshotType         │
+│ SchemaVersionID PK   │      │ SnapshotData (JSON)  │
+│ ScriptName           │      │ CreatedAt            │
+│ Applied              │      │ Description          │
+└──────────────────────┘      └──────────────────────┘
+```
+
+### 4.7.3 关系摘要
+
+| 子表 | 外键 | 父表 | 基数 |
+|------|------|------|------|
+| BomStructures | ParentMaterialId | Materials | M:1 |
+| BomStructures | ChildMaterialId | Materials | M:1 |
+| BomVersions | BomId | BomStructures | M:1 |
+| BomVersions | ApprovedBy | Users | M:1 (可空) |
+| Estimates | BomVersionId | BomVersions | M:1 (可空) |
+| Prices | MaterialId | Materials | M:1 |
+| Prices | SupplierId | Suppliers | M:1 |
+| Inventories | MaterialId | Materials | M:1 |
+| Orders | MaterialId | Materials | M:1 |
+| UserTokens | UserId | Users | M:1 |
+| AuditLogs | UserId | Users | M:1 (可空) |
+
+### 4.7.4 种子数据规模 (500 物料基准)
+
+| 表 | 行数 | 说明 |
+|------|------|------|
+| Materials | 500 | 5% 根节点, BOM 深度 1-5 层 |
+| BomStructures | ~540 | 树形结构, 扇出 3-8, 共享件 ~14% |
+| BomVersions | ~80 | Draft/Obsolete 节点版本链 |
+| Prices | 6,000 | 500 物料 × 12 月历史 |
+| Inventories | 6,000 | 500 物料 × 12 月历史 |
+| Suppliers | 20 | 20 家供应商 (中国产业链) |
+| Orders | ~150 | 30% 物料有在途订单 |
+| Capacities | 7 | 7 个工作中心 |
+| Estimates | 15 | 15 个根物料成本估算 |
+| Users | 2 | admin / viewer |
+| AppConfig | 6 | 环境/同步/缓存/阈值配置 |
+| SyncLogs | 5 | Full/Incremental 同步记录 |
+| SchemaVersions | 4 | DbUp 迁移追踪 |
+
+---
 
 ### 4.7 `build/` — 构建与打包
 
