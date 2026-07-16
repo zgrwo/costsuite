@@ -115,7 +115,7 @@ public class BomServiceEdgeCaseTests
     {
         var oldNode = new BomNode { Id = 10, Quantity = 5 };
         var newNode = new BomNode { Id = 10, Quantity = 8 };
-        _nodeRepoMock.Setup(r => r.GetById(10)).Returns(oldNode);
+        _nodeRepoMock.Setup(r => r.GetById(10, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>())).Returns(oldNode);
 
         _service.UpdateNode(newNode, UserRole.Admin);
 
@@ -126,7 +126,7 @@ public class BomServiceEdgeCaseTests
     public void Expand_CacheInvalidatedAfterDeleteNode()
     {
         var node = new BomNode { Id = 20, Quantity = 1 };
-        _nodeRepoMock.Setup(r => r.GetById(20)).Returns(node);
+        _nodeRepoMock.Setup(r => r.GetById(20, It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>())).Returns(node);
 
         _service.DeleteNode(20, UserRole.Admin);
 

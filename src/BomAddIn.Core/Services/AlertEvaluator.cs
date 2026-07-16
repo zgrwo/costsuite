@@ -77,9 +77,10 @@ namespace BomAddIn.Core.Services
                 }
 
                 // 规则 3: 价格从零变为正值（哨兵值 double.MaxValue）→ Critical
+                // double.MaxValue-1 == double.MaxValue（ULP ~1.8e292），显式检查 MaxValue 本身更清晰
                 if (v.Dimension == VarianceDimension.Price
                     && v.ChangePercent.HasValue
-                    && v.ChangePercent.Value >= double.MaxValue - 1)
+                    && Math.Abs(v.ChangePercent.Value - double.MaxValue) < 1.0)
                 {
                     alerts.Add(new Alert
                     {

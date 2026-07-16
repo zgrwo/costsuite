@@ -386,105 +386,65 @@ public class Program
         }
     }
 
-    private static void RunSyncProdToDev(string[] args)
+    /// <summary>通用数据库同步实现 (H-31: 消除 RunSyncProdToDev/RunSyncDevToProd 重复)</summary>
+    private static void SyncDatabases(
+        string directionLabel, string sourceLabel, string targetLabel,
+        string sourceDb, string targetDb, string[] args,
+        string confirmPrompt, string confirmWord, bool requireSourceDataCheck,
+        string? completionHint)
     {
-        var prodDb = SqliteConnectionFactory.ProdDatabasePath;
-        var devDb = SqliteConnectionFactory.DevDatabasePath;
-
-        Console.WriteLine("PROD→DEV 单向数据同步");
-        Console.WriteLine($"  源 (PROD): {prodDb}");
-        Console.WriteLine($"  目标 (DEV): {devDb}");
+        Console.WriteLine($"=== {directionLabel} ===");
+        Console.WriteLine($"  源 ({sourceLabel}): {sourceDb}");
+        Console.WriteLine($"  目标 ({targetLabel}): {targetDb}");
         Console.WriteLine();
 
-        if (!File.Exists(prodDb))
+        if (!File.Exists(sourceDb))
         {
-            Console.WriteLine("[!!] PROD 数据库不存在，无法同步。");
+            Console.WriteLine($"[!!] {sourceLabel} 数据库不存在，无法同步。");
             return;
+        }
+
+        // 可选: 源数据库数据检查
+        if (requireSourceDataCheck)
+        {
+            try
+            {
+                using var srcConn = new SQLiteConnection($"Data Source={sourceDb}");
+                srcConn.Open();
+                var materialCount = srcConn.ExecuteScalar<int>("SELECT COUNT(*) FROM Materials");
+                if (materialCount == 0)
+                {
+                    Console.WriteLine($"[!!] {sourceLabel} 数据库为空，无法迁移。请先运行 'seed' 生成数据。");
+                    return;
+                }
+                Console.WriteLine($"{sourceLabel} 数据库状态: {materialCount:N0} 物料");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[!!] 无法读取 {sourceLabel} 数据库: {ex.Message}");
+                return;
+            }
         }
 
         // 安全守卫: 确认
         var force = args.Length > 1 && args[1] == "--force";
         if (!force)
         {
-            Console.Write("确认覆盖 DEV 数据库? (输入 yes 继续): ");
+            Console.WriteLine();
+            if (requireSourceDataCheck) // DEV→PROD 高风险操作
+            {
+                Console.WriteLine("⚠⚠⚠  WARNING: 此操作将以 DEV 数据覆盖 PROD 数据库! ⚠⚠⚠");
+                Console.WriteLine("   生产环境数据将被替换。");
+                Console.WriteLine();
+            }
+            Console.Write($"{confirmPrompt}: ");
             var input = Console.ReadLine();
-            if (input?.ToLower() != "yes")
+            var matches = requireSourceDataCheck
+                ? string.Equals(input?.Trim(), confirmWord, StringComparison.OrdinalIgnoreCase)
+                : string.Equals(input?.Trim(), confirmWord, StringComparison.OrdinalIgnoreCase);
+            if (!matches)
             {
-                Console.WriteLine("已取消。");
-                return;
-            }
-        }
-
-        try
-        {
-            // 备份现有 DEV 数据库
-            if (File.Exists(devDb))
-            {
-                var backupPath = devDb.Replace(".sqlite", $"_backup_{DateTime.UtcNow:yyyyMMdd_HHmmss}.sqlite");
-                File.Copy(devDb, backupPath);
-                Console.WriteLine($"已备份 DEV 数据库: {backupPath}");
-            }
-
-            // 复制 PROD → DEV
-            File.Copy(prodDb, devDb, overwrite: true);
-            Console.WriteLine("同步完成 — PROD 数据已复制到 DEV。");
-            Console.WriteLine();
-            Console.WriteLine("提示: 运行 'BomAddIn.Diagnostic.exe env dev' 切换到 DEV 环境。");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[!!] 同步失败: {ex.Message}");
-        }
-    }
-
-    private static void RunSyncDevToProd(string[] args)
-    {
-        var prodDb = SqliteConnectionFactory.ProdDatabasePath;
-        var devDb = SqliteConnectionFactory.DevDatabasePath;
-
-        Console.WriteLine("=== DEV→PROD 单向数据迁移 ===");
-        Console.WriteLine($"  源 (DEV):  {devDb}");
-        Console.WriteLine($"  目标 (PROD): {prodDb}");
-        Console.WriteLine();
-
-        if (!File.Exists(devDb))
-        {
-            Console.WriteLine("[!!] DEV 数据库不存在，无法迁移。请先运行 'seed' 生成数据。");
-            return;
-        }
-
-        // 安全守卫 1: 检查 DEV 数据库中有数据
-        try
-        {
-            using var devConn = new SQLiteConnection($"Data Source={devDb}");
-            devConn.Open();
-            var materialCount = devConn.ExecuteScalar<int>("SELECT COUNT(*) FROM Materials");
-            if (materialCount == 0)
-            {
-                Console.WriteLine("[!!] DEV 数据库为空，无法迁移。请先运行 'seed' 生成数据。");
-                return;
-            }
-            Console.WriteLine($"DEV 数据库状态: {materialCount:N0} 物料");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[!!] 无法读取 DEV 数据库: {ex.Message}");
-            return;
-        }
-
-        // 安全守卫 2: 双因子确认 (DEV→PROD 是高风险操作)
-        var force = args.Length > 1 && args[1] == "--force";
-        if (!force)
-        {
-            Console.WriteLine();
-            Console.WriteLine("⚠⚠⚠  WARNING: 此操作将以 DEV 数据覆盖 PROD 数据库! ⚠⚠⚠");
-            Console.WriteLine("   生产环境数据将被替换。");
-            Console.WriteLine();
-            Console.Write("确认将 DEV 数据迁移至 PROD? (输入 PROD 继续): ");
-            var input = Console.ReadLine();
-            if (input?.Trim().ToUpperInvariant() != "PROD")
-            {
-                Console.WriteLine("已取消。输入内容与 'PROD' 不匹配。");
+                Console.WriteLine($"已取消。输入内容与 '{confirmWord}' 不匹配。");
                 return;
             }
         }
@@ -495,24 +455,48 @@ public class Program
 
         try
         {
-            // 备份现有 PROD 数据库（强制备份，不可跳过）
-            if (File.Exists(prodDb))
+            // 备份目标数据库
+            if (File.Exists(targetDb))
             {
-                var backupPath = prodDb.Replace(".sqlite", $"_backup_{DateTime.UtcNow:yyyyMMdd_HHmmss}.sqlite");
-                File.Copy(prodDb, backupPath);
-                Console.WriteLine($"✅ 已备份 PROD 数据库: {backupPath}");
+                var backupPath = Path.ChangeExtension(targetDb, $"_backup_{DateTime.UtcNow:yyyyMMdd_HHmmss}.sqlite");
+                File.Copy(targetDb, backupPath);
+                Console.WriteLine($"✅ 已备份 {targetLabel} 数据库: {backupPath}");
             }
 
-            // DEV → PROD 复制
-            File.Copy(devDb, prodDb, overwrite: true);
-            Console.WriteLine("✅ 迁移完成 — DEV 数据已发布到 PROD。");
-            Console.WriteLine();
-            Console.WriteLine("提示: 运行 'BomAddIn.Diagnostic.exe env prod' 确认切换到 PROD 环境。");
+            // 高风险操作额外警告
+            if (requireSourceDataCheck)
+                Console.WriteLine("⚠ 请确认 Excel 已关闭（add-in 可能正在使用 PROD 数据库）。");
+
+            File.Copy(sourceDb, targetDb, overwrite: true);
+            Console.WriteLine($"✅ 同步完成 — {sourceLabel} 数据已复制到 {targetLabel}。");
+            if (completionHint != null)
+            {
+                Console.WriteLine();
+                Console.WriteLine(completionHint);
+            }
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[!!] 迁移失败: {ex.Message}");
-            Console.WriteLine("   PROD 备份文件未被修改，可手动恢复。");
+            Console.WriteLine($"[!!] 同步失败: {ex.Message}");
+            Console.WriteLine($"   {targetLabel} 备份文件未被修改，可手动恢复。");
         }
+    }
+
+    private static void RunSyncProdToDev(string[] args)
+    {
+        SyncDatabases("PROD→DEV 单向数据同步", "PROD", "DEV",
+            SqliteConnectionFactory.ProdDatabasePath, SqliteConnectionFactory.DevDatabasePath,
+            args, "确认覆盖 DEV 数据库? (输入 yes 继续)", "yes",
+            requireSourceDataCheck: false,
+            "提示: 运行 'BomAddIn.Diagnostic.exe env dev' 切换到 DEV 环境。");
+    }
+
+    private static void RunSyncDevToProd(string[] args)
+    {
+        SyncDatabases("DEV→PROD 单向数据迁移", "DEV", "PROD",
+            SqliteConnectionFactory.DevDatabasePath, SqliteConnectionFactory.ProdDatabasePath,
+            args, "确认将 DEV 数据迁移至 PROD? (输入 PROD 继续)", "PROD",
+            requireSourceDataCheck: true,
+            "提示: 运行 'BomAddIn.Diagnostic.exe env prod' 确认切换到 PROD 环境。");
     }
 }

@@ -55,13 +55,7 @@ namespace BomAddIn.Core.Services
 
             // C-5 fix: 自我审批检查已移入 Transition 事务内，消除 TOCTOU 窗口
             var result = Transition(versionId, VersionState.Approved, userId, checkSelfApproval: true);
-            // 审计记录尽力而为，失败不回滚
-            try
-            {
-                _auditService.Log(AuditAction.Approve, "BomVersions", versionId,
-                    null, comment != null ? AuditService.ToJson(new { Comment = comment }) : null, userId);
-            }
-            catch (Exception ex) { Infrastructure.Logging.AppLogger.Warn($"审计日志写入失败 (APPROVE): {ex.Message}", typeof(ApprovalService)); }
+            TryLogAudit(AuditAction.Approve, versionId, userId, comment != null ? AuditService.ToJson(new { Comment = comment }) : null);
             return result;
         }
 
@@ -74,13 +68,7 @@ namespace BomAddIn.Core.Services
                 throw new ArgumentException("Rejection requires a reason.", nameof(comment));
 
             var version = Transition(versionId, VersionState.Rejected, userId);
-            // 审计记录尽力而为，失败不回滚（与 Approve 保持一致）
-            try
-            {
-                _auditService.Log(AuditAction.Reject, "BomVersions", versionId,
-                    null, AuditService.ToJson(new { Comment = comment }), userId);
-            }
-            catch (Exception ex) { Infrastructure.Logging.AppLogger.Warn($"审计日志写入失败 (REJECT): {ex.Message}", typeof(ApprovalService)); }
+            TryLogAudit(AuditAction.Reject, versionId, userId, AuditService.ToJson(new { Comment = comment }));
             return version;
         }
 
@@ -156,6 +144,20 @@ namespace BomAddIn.Core.Services
             {
                 tx.Rollback();
                 throw;
+            }
+        }
+
+        /// <summary>审计记录尽力而为，写入失败不回滚业务操作 (H-31)</summary>
+        private void TryLogAudit(AuditAction action, long versionId, long userId, string? newValue)
+        {
+            try
+            {
+                _auditService.Log(action, "BomVersions", versionId, null, newValue, userId);
+            }
+            catch (Exception ex)
+            {
+                Infrastructure.Logging.AppLogger.Warn(
+                    $"审计日志写入失败 ({action}): {ex.Message}", typeof(ApprovalService));
             }
         }
 

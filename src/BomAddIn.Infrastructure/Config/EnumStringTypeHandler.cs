@@ -28,11 +28,13 @@ namespace BomAddIn.Infrastructure.Config
                     return (T)Enum.ToObject(typeof(T), intVal);
             }
 
-            // H-29: 未知枚举值警告 — 静默 fallback 对 UserRole 等安全敏感枚举可导致权限提升
-            Infrastructure.Logging.AppLogger.Warn(
-                $"类型处理器 {typeof(T).Name}: 无法解析值 '{value}'，回退到 default({typeof(T).Name}) = {default(T)}。",
-                typeof(EnumStringTypeHandler<T>));
-            return default;
+            // H-31: 未知枚举值 → 对安全敏感枚举抛异常，防止权限提升
+            Infrastructure.Logging.AppLogger.Error(
+                $"类型处理器 {typeof(T).Name}: 无法解析值 '{value}'。抛出异常以防止数据损坏传播。",
+                null, typeof(EnumStringTypeHandler<T>));
+            throw new ArgumentException(
+                $"数据库中存在无法识别的 {typeof(T).Name} 值: '{value}'。" +
+                "请检查数据迁移是否完整，或代码中的枚举定义是否与数据库同步。");
         }
     }
 }

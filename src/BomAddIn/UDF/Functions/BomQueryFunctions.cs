@@ -36,12 +36,12 @@ namespace BomAddIn.UDF.Functions
                 var service = scope.ServiceProvider.GetRequiredService<IBomService>();
                 var nodes = service.Expand(itemCode, date);
 
-                // V1.0 限制: DuckDB ExpandBom 硬编码 VersionState='Released'，
+                // V1.0 限制: DuckDB ExpandBom 硬编码 VersionState='Released'。
                 // "Draft"/"Obsolete"/"All" 参数均不可达（Expand 仅返回 Released 节点）。
-                // V1.1: BomAnalysisProvider.ExpandBom 接受 versionState 参数进行动态过滤。
-                // 当前 "Released" 和 "All" 直接使用 Expand 结果。
-                if (version == "Draft" || version == "Obsolete")
-                    return ExcelError.ExcelErrorNA; // 功能未实现，明确返回 #N/A 而非静默空列表
+                // 统一返回 #N/A 而非静默降级，避免用户误以为 All=Released。
+                // V1.1: BomAnalysisProvider.ExpandBom 接受 versionState 参数。
+                if (version != "Released")
+                    return ExcelError.ExcelErrorNA;
 
                 if (nodes.Count == 0)
                     return ExcelError.ExcelErrorNA;

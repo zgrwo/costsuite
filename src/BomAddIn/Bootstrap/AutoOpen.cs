@@ -55,12 +55,24 @@ namespace BomAddIn
                 catch (Exception ex) { ShowStartupError("DI失败", ex); return; }
                 try { _serviceProvider.GetRequiredService<DatabaseMigrator>().RunPendingMigrations(); }
                 catch (Exception ex) { ShowStartupError("迁移失败", ex); return; }
-                try { SeedDefaultData(); } catch { }
+                try { SeedDefaultData(); }
+                catch (Exception ex)
+                {
+                    AppLogger.Error($"管理员种子数据创建失败。请检查 BOM_ADMIN_SEED_PASSWORD 环境变量是否已设置。详情: {ex.Message}",
+                        ex, typeof(BomAddInStartup));
+                }
                 // 后台预热和自动维护任务（fire-and-forget，失败不阻止启动）
+                // H-31: 改为顺序执行（避免 3 并发 SQLite 写冲突），并记录失败原因
                 var ct = CancellationToken.None;
-                Task.Run(() => { try { WarmUpDuckDb(ct); } catch { } });
-                Task.Run(() => { try { CreateDailySnapshotIfNeeded(ct); } catch { } });
-                Task.Run(() => { try { GenerateSeedDataIfNeeded(ct); } catch { } });
+                Task.Run(() =>
+                {
+                    try { WarmUpDuckDb(ct); }
+                    catch (Exception ex) { AppLogger.Warn($"DuckDB 预热失败: {ex.Message}", typeof(BomAddInStartup)); }
+                    try { CreateDailySnapshotIfNeeded(ct); }
+                    catch (Exception ex) { AppLogger.Warn($"每日快照失败: {ex.Message}", typeof(BomAddInStartup)); }
+                    try { GenerateSeedDataIfNeeded(ct); }
+                    catch (Exception ex) { AppLogger.Warn($"种子数据检查失败: {ex.Message}", typeof(BomAddInStartup)); }
+                });
                 // RegisterTaskPane 会导致 Excel 崩溃 — WPF 初始化问题，待调查
             }
             catch (Exception ex) { ShowStartupError("启动异常", ex); }

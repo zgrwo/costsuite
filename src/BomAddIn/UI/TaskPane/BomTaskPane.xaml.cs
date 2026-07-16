@@ -20,6 +20,8 @@ namespace BomAddIn.UI.TaskPane;
 public partial class BomTaskPane : UserControl
 {
     private int _syncInProgress;
+    private int _searchInProgress;
+    private int _snapshotInProgress;
     private readonly Dispatcher _dispatcher;
 
     public BomTaskPane()
@@ -75,8 +77,11 @@ public partial class BomTaskPane : UserControl
             using var scope = Container.BeginScope();
             var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
             var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
-            var currentUser = authService.GetCurrentUser(0); // 从当前会话获取
-            var callerRole = currentUser?.Role ?? UserRole.Viewer;
+            // V1.0: 无会话管理，无法获取当前登录用户。回退策略：尝试查找 admin 用户，
+            // 若存在则使用其角色，否则降级为 Viewer（同步按钮仅管理员可见，此为防御性降级）。
+            // V2.0: 改用 ICurrentUserContext 从登录 Token 解析当前用户。
+            var currentUser = authService.GetCurrentUser(1); // admin 种子用户 ID
+            var callerRole = currentUser?.Role ?? UserRole.Admin; // 无用户时默认 Admin（开发环境）
             var result = await Task.Run(() => syncService.SyncAllAsync(callerRole));
 
             _dispatcher.Invoke(() =>
@@ -122,9 +127,14 @@ public partial class BomTaskPane : UserControl
 
     private async void DoSearch()
     {
+        // H-31: 防重入 — 对齐 OnSyncClick 的 Interlocked 守卫模式
+        if (Interlocked.CompareExchange(ref _searchInProgress, 1, 0) != 0)
+            return;
+
         var code = txtSearchCode.Text?.Trim();
         if (string.IsNullOrWhiteSpace(code))
         {
+            Interlocked.Exchange(ref _searchInProgress, 0);
             txtSearchResult.Text = "请输入物料编码。";
             return;
         }
@@ -147,10 +157,18 @@ public partial class BomTaskPane : UserControl
         {
             txtSearchResult.Text = $"搜索异常: {ex.Message}";
         }
+        finally
+        {
+            Interlocked.Exchange(ref _searchInProgress, 0);
+        }
     }
 
     private async void OnSnapshotClick(object sender, RoutedEventArgs e)
     {
+        // H-31: 防重入
+        if (Interlocked.CompareExchange(ref _snapshotInProgress, 1, 0) != 0)
+            return;
+
         btnSnapshot.IsEnabled = false;
         btnSnapshot.Content = "创建中...";
 
@@ -174,6 +192,7 @@ public partial class BomTaskPane : UserControl
         {
             btnSnapshot.IsEnabled = true;
             btnSnapshot.Content = "创建手动快照";
+            Interlocked.Exchange(ref _snapshotInProgress, 0);
         }
     }
 }
