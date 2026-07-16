@@ -60,10 +60,13 @@ namespace BomAddIn.Core.Services
             if (cached != null)
                 return cached;
 
-            // 确保 DuckDB 已加载（懒加载 — 预热可能尚未完成）
-            using (var conn = _connectionFactory.CreateConnection())
+            // 确保 DuckDB 已加载（仅冷启动时打开连接 — 预热完成后跳过，避免每次 UDF 调用的连接开销）
+            if (!_analysisProvider.IsLoaded)
             {
-                _analysisProvider.EnsureLoaded(conn);
+                using (var conn = _connectionFactory.CreateConnection())
+                {
+                    _analysisProvider.EnsureLoaded(conn);
+                }
             }
 
             // 缓存未命中 → DuckDB 展开

@@ -8,6 +8,9 @@ namespace BomAddIn.Data.Analysis
     /// <summary>DuckDB 分析查询接口 — 内存列式引擎</summary>
     public interface IBomAnalysisProvider
     {
+        /// <summary>DuckDB 是否已完成数据加载（预热完成）。调用方可用此属性避免无意义的 EnsureLoaded 连接创建。</summary>
+        bool IsLoaded { get; }
+
         /// <summary>展开物料完整 BOM 树（递归 CTE）</summary>
         List<BomExpandedNode> ExpandBom(string itemCode, DateTime? asOfDate = null);
 

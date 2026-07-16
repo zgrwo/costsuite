@@ -78,6 +78,47 @@ public class DuckDBCompatibilityTests : IClassFixture<SqliteTestFixture>
     }
 
     [Fact]
+    public void DuckDB_ExpandBom_DiamondDedup_PreventsPathExplosion()
+    {
+        // 菱形 BOM: A→B→D, A→C→D  (D 被两个父节点共享)
+        // 修复前: CTE 枚举 A→B→D 和 A→C→D 两条路径，D 的子节点被展开 2 次，逐层放大
+        // 修复后: 全局去重 — D 只在首次出现时展开，O(N) 替代 O(分支^深度)
+        using var sqliteConn = _fixture.CreateConnection();
+
+        // 创建 4 个测试物料
+        sqliteConn.Execute("INSERT INTO Materials (OrgId, Code, Name, Spec, Unit, Category, IsActive) VALUES (1, 'DIAMOND-A', 'A', '', 'PCS', '', 1)");
+        sqliteConn.Execute("INSERT INTO Materials (OrgId, Code, Name, Spec, Unit, Category, IsActive) VALUES (1, 'DIAMOND-B', 'B', '', 'PCS', '', 1)");
+        sqliteConn.Execute("INSERT INTO Materials (OrgId, Code, Name, Spec, Unit, Category, IsActive) VALUES (1, 'DIAMOND-C', 'C', '', 'PCS', '', 1)");
+        sqliteConn.Execute("INSERT INTO Materials (OrgId, Code, Name, Spec, Unit, Category, IsActive) VALUES (1, 'DIAMOND-D', 'D', '', 'PCS', '', 1)");
+
+        var ids = sqliteConn.Query<long>("SELECT Id FROM Materials WHERE Code LIKE 'DIAMOND-%' ORDER BY Code").ToList();
+        var aId = ids[0]; var bId = ids[1]; var cId = ids[2]; var dId = ids[3];
+
+        // 构建菱形: A→B, A→C, B→D, C→D
+        sqliteConn.Execute(@"INSERT INTO BomStructures (OrgId, ParentMaterialId, ChildMaterialId, Quantity, Level, ValidFrom, VersionState)
+            VALUES (1, @P, @C, 1, 1, '2026-01-01', 'Released')",
+            new[] {
+                new { P = aId, C = bId },
+                new { P = aId, C = cId },
+                new { P = bId, C = dId },
+                new { P = cId, C = dId }
+            });
+
+        var provider = new BomAnalysisProvider();
+        provider.LoadFromSqlite(sqliteConn);
+
+        var nodes = provider.ExpandBom("DIAMOND-A");
+
+        // 验证每个物料只出现一次（D 不会重复）
+        var counts = nodes.GroupBy(n => n.ItemCode).ToDictionary(g => g.Key, g => g.Count());
+        Assert.Equal(1, counts["DIAMOND-A"]);
+        Assert.Equal(1, counts["DIAMOND-B"]);
+        Assert.Equal(1, counts["DIAMOND-C"]);
+        Assert.Equal(1, counts["DIAMOND-D"]);
+        Assert.Equal(4, nodes.Count); // 总共 4 个唯一节点
+    }
+
+    [Fact]
     public void DuckDB_Version_IsUsable()
     {
         using var conn = new DuckDBConnection("DataSource=:memory:");

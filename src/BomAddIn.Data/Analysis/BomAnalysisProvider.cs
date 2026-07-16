@@ -20,6 +20,9 @@ namespace BomAddIn.Data.Analysis
         private readonly object _lock = new object();
         private volatile bool _isLoaded;
 
+        /// <summary>DuckDB 是否已完成全量数据加载（预热完成）</summary>
+        public bool IsLoaded => _isLoaded;
+
         public void EnsureLoaded(IDbConnection sqliteConn)
         {
             if (_isLoaded) return;
@@ -115,74 +118,122 @@ namespace BomAddIn.Data.Analysis
                 if (_duckDb == null)
                     throw new InvalidOperationException("DuckDB 未初始化。请先调用 LoadFromSqlite()。");
 
-                using var cmd = _duckDb.CreateCommand();
-                cmd.CommandText = @"
-                    WITH RECURSIVE BomTree AS (
-                        SELECT
-                            m.Id AS MaterialId,
-                            NULL::BIGINT AS ParentMaterialId,
-                            m.Code, m.Name, m.Unit,
-                            CAST(1.0 AS DOUBLE) AS Quantity,
-                            0 AS Level,
-                            [m.Id] AS Path
-                        FROM Materials m
-                        WHERE m.Code = $1
-
-                        UNION ALL
-
-                        SELECT
-                            b.ChildMaterialId AS MaterialId,
-                            b.ParentMaterialId,
-                            m2.Code, m2.Name, m2.Unit,
-                            CAST(b.Quantity AS DOUBLE) * CAST(bt.Quantity AS DOUBLE),
-                            bt.Level + 1,
-                            list_concat(bt.Path, [b.ChildMaterialId]) AS Path
-                        FROM BomNodes b
-                        JOIN BomTree bt ON b.ParentMaterialId = bt.MaterialId
-                        JOIN Materials m2 ON b.ChildMaterialId = m2.Id
-                        WHERE bt.Level < 20
-                          AND NOT list_contains(bt.Path, b.ChildMaterialId)
-                          AND date(b.ValidFrom) <= date($2)
-                          AND (b.ValidTo IS NULL OR date(b.ValidTo) > date($2))
-                          AND b.VersionState = 'Released'
-                    )
-                    SELECT Level, Code AS ItemCode, Name AS Description,
-                           Quantity, Unit, '' AS Source, 'Released' AS VersionState,
-                           MaterialId, ParentMaterialId
-                    FROM BomTree
-                    ORDER BY Level, Code
-                ";
-                // 循环检测已由 WHERE 子句中的 list_contains(bt.Path, b.ChildMaterialId) 保证
-                // DuckDB v1.5.4 移除了 CYCLE ... SET ... TO 语法，改用 IS CYCLE 子句
-
-                // B-7 fix: 使用 DuckDB 原生位置参数 ($1, $2) 避免 SQL 注入和查询计划缓存失效
-                cmd.Parameters.Add(new DuckDBParameter(itemCode));
-                cmd.Parameters.Add(new DuckDBParameter(date));
-
+                // H-25: 迭代 BFS 展开 + 全局 HashSet 去重。
+                // 替代递归 CTE 的 list_contains/Path 方案，避免 DAG 中枚举所有路径的指数爆炸。
+                // 每个 MaterialId 只展开一次（首次出现在最浅层级），O(N) 替代 O(分支^深度)。
+                var visited = new HashSet<long>();
                 var results = new List<BomExpandedNode>();
-                using var reader = cmd.ExecuteReader();
-                while (reader.Read())
+                const int maxLevel = 20;
+
+                // Step 1: 查找根物料
+                using (var rootCmd = _duckDb.CreateCommand())
                 {
+                    rootCmd.CommandText = @"
+                        SELECT Id, Code, Name, Unit, Category
+                        FROM Materials WHERE Code = $1";
+                    rootCmd.Parameters.Add(new DuckDBParameter(itemCode));
+
+                    using var reader = rootCmd.ExecuteReader();
+                    if (!reader.Read())
+                        return results; // 物料不存在，返回空列表
+
+                    var rootId = reader.GetInt64(0);
+                    var rootCode = reader.GetString(1);
+                    var rootName = reader.GetString(2);
+                    var rootUnit = reader.GetString(3);
+                    var rootCategory = reader.GetString(4);
+
+                    visited.Add(rootId);
                     results.Add(new BomExpandedNode
                     {
-                        Level = reader.GetInt32(0),
-                        ItemCode = reader.GetString(1),
-                        Description = reader.GetString(2),
-                        // DuckDB v1.5.4: DECIMAL 乘法返回 decimal，DuckDB.NET v1.0.2 的 GetDouble 无法转换
-                        Quantity = Convert.ToDouble(reader.GetValue(3)),
-                        Unit = reader.GetString(4),
-                        Source = reader.GetString(5),
-                        VersionState = reader.GetString(6),
-                        MaterialId = reader.GetInt64(7),
-                        ParentMaterialId = reader.IsDBNull(8) ? null : (long?)reader.GetInt64(8)
+                        Level = 0,
+                        MaterialId = rootId,
+                        ParentMaterialId = null,
+                        ItemCode = rootCode,
+                        Description = rootName,
+                        Quantity = 1.0,
+                        Unit = rootUnit,
+                        Source = rootCategory,
+                        VersionState = "Released"
                     });
                 }
 
-                // C-19 fix: CTE 深度达到上限 (Level=19) 时记录警告，防止静默截断
+                // Step 2: BFS 逐层展开
+                var currentParentIds = new List<long> { results[0].MaterialId };
+                var levelQuantity = new Dictionary<long, double> { [results[0].MaterialId] = 1.0 };
+                var levelParent = new Dictionary<long, long?> { [results[0].MaterialId] = null };
+
+                for (int level = 1; level <= maxLevel && currentParentIds.Count > 0; level++)
+                {
+                    // 批量查询当前层所有父节点的子节点
+                    var parentIdList = string.Join(", ", currentParentIds);
+                    var children = new List<(long childId, long parentId, string code, string name,
+                        string unit, double qty, string category)>();
+
+                    using (var childCmd = _duckDb.CreateCommand())
+                    {
+                        childCmd.CommandText = $@"
+                            SELECT b.ChildMaterialId, b.ParentMaterialId,
+                                   m.Code, m.Name, m.Unit, b.Quantity, m.Category
+                            FROM BomNodes b
+                            JOIN Materials m ON b.ChildMaterialId = m.Id
+                            WHERE b.ParentMaterialId IN ({parentIdList})
+                              AND date(b.ValidFrom) <= date($1)
+                              AND (b.ValidTo IS NULL OR date(b.ValidTo) > date($1))
+                              AND b.VersionState = 'Released'";
+                        childCmd.Parameters.Add(new DuckDBParameter(date));
+
+                        using var reader = childCmd.ExecuteReader();
+                        while (reader.Read())
+                        {
+                            children.Add((
+                                reader.GetInt64(0),
+                                reader.GetInt64(1),
+                                reader.GetString(2),
+                                reader.GetString(3),
+                                reader.GetString(4),
+                                Convert.ToDouble(reader.GetValue(5)),
+                                reader.GetString(6)
+                            ));
+                        }
+                    }
+
+                    // 去重 + 准备下一层
+                    var nextParentIds = new List<long>();
+                    foreach (var (childId, parentId, code, name, unit, qty, category) in children)
+                    {
+                        if (!visited.Add(childId))
+                            continue; // 全局去重：已展开过的不再处理
+
+                        var parentQty = levelQuantity[parentId];
+                        var cumulativeQty = parentQty * qty;
+
+                        levelQuantity[childId] = cumulativeQty;
+                        levelParent[childId] = parentId;
+                        nextParentIds.Add(childId);
+
+                        results.Add(new BomExpandedNode
+                        {
+                            Level = level,
+                            MaterialId = childId,
+                            ParentMaterialId = parentId,
+                            ItemCode = code,
+                            Description = name,
+                            Quantity = cumulativeQty,
+                            Unit = unit,
+                            Source = category,
+                            VersionState = "Released"
+                        });
+                    }
+
+                    currentParentIds = nextParentIds;
+                }
+
+                // C-19: 深度达到上限时记录警告
                 if (results.Any(n => n.Level >= 19))
                 {
                     Infrastructure.Logging.AppLogger.Warn(
-                        $"BOM \"{itemCode}\" 展开达到 CTE 深度上限 (20 层)，结果可能不完整。" +
+                        $"BOM \"{itemCode}\" 展开达到深度上限 ({maxLevel} 层)，结果可能不完整。" +
                         $"最大层级: {results.Max(n => n.Level)}，总节点数: {results.Count}",
                         typeof(BomAnalysisProvider));
                 }
