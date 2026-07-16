@@ -74,8 +74,13 @@ namespace BomAddIn.Core.Services
                 throw new ArgumentException("Rejection requires a reason.", nameof(comment));
 
             var version = Transition(versionId, VersionState.Rejected, userId);
-            _auditService.Log(AuditAction.Reject, "BomVersions", versionId,
-                null, AuditService.ToJson(new { Comment = comment }), userId);
+            // 审计记录尽力而为，失败不回滚（与 Approve 保持一致）
+            try
+            {
+                _auditService.Log(AuditAction.Reject, "BomVersions", versionId,
+                    null, AuditService.ToJson(new { Comment = comment }), userId);
+            }
+            catch (Exception ex) { Infrastructure.Logging.AppLogger.Warn($"审计日志写入失败 (REJECT): {ex.Message}", typeof(ApprovalService)); }
             return version;
         }
 

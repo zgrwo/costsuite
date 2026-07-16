@@ -83,12 +83,11 @@ namespace BomAddIn.Data.Analysis
                 }
                 catch
                 {
-                    // 加载失败时清理连接，避免泄漏
-                    oldDb?.Close();
-                    oldDb?.Dispose();
+                    // 加载失败：清理失败的新连接，恢复旧连接（保持分析子系统可用）
                     _duckDb?.Close();
                     _duckDb?.Dispose();
-                    _duckDb = oldDb; // 恢复旧连接（如果存在）
+                    _duckDb = oldDb;
+                    _isLoaded = oldDb != null;
                     throw;
                 }
 

@@ -233,6 +233,8 @@ namespace BomAddIn.Core.Services
                 int parentIdx = 0;
                 int childIdx = 0;
 
+                if (parents.Count == 0) break;
+
                 while (childIdx < children.Count)
                 {
                     var parentId = parents[parentIdx % parents.Count];

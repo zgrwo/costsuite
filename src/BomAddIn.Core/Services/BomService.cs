@@ -94,6 +94,7 @@ namespace BomAddIn.Core.Services
         /// </summary>
         public BomNode AddNode(BomNode node, UserRole callerRole, long? userId = null)
         {
+            if (node == null) throw new ArgumentNullException(nameof(node));
             _authz.Demand(callerRole, BomOperation.BomCreate);
             using var conn = _connectionFactory.CreateConnection();
             conn.Open();
@@ -120,6 +121,7 @@ namespace BomAddIn.Core.Services
         /// </summary>
         public void UpdateNode(BomNode node, UserRole callerRole, long? userId = null)
         {
+            if (node == null) throw new ArgumentNullException(nameof(node));
             _authz.Demand(callerRole, BomOperation.BomUpdate);
             using var conn = _connectionFactory.CreateConnection();
             conn.Open();
