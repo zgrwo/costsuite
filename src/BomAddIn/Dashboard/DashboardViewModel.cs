@@ -34,7 +34,9 @@ namespace BomAddIn.Dashboard
         public DashboardViewModel(IServiceProvider? services = null)
         {
             _services = services ?? BomAddInStartup.ServiceProvider;
-            _uiDispatcher = Application.Current?.Dispatcher ?? System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            // 始终使用当前线程的 Dispatcher——Application.Current?.Dispatcher 在 Excel 主线程
+            // 创建 WPF Application 后会错误返回 COM 线程 Dispatcher，导致 UI 更新封送至错误线程。
+            _uiDispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
 
             // 命令
             RefreshCommand = new RelayCommand(async _ => await RefreshAll());

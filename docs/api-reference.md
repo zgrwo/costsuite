@@ -3,7 +3,7 @@
 > **日期**: 2026-07-13  
 > **受众**: 开发者  
 > **单源真理**: UDF 函数签名、参数约束、错误码、使用示例以本文档为准  
-> **设计依据**: [specification.md §8](./specification.md#8-udf-函数清单)（函数分类和设计约束）
+> **设计依据**: [specification.md §8](./reference/specification.md#8-udf-函数清单)（函数分类和设计约束）
 
 ---
 
@@ -332,10 +332,10 @@
 | `VARIANCECHECK` 数组输出 | 返回单文本摘要 | 同 2016 | 返回结构化数组 |
 | 其他单值函数 | 正常 | 正常 | 正常 |
 
-> 详细兼容性矩阵见 [specification.md §13](./specification.md#13-excel-版本兼容矩阵)
+> 详细兼容性矩阵见 [specification.md §13](./reference/specification.md#13-excel-版本兼容矩阵)
 
 ---
 
-## 6. 与 specification.md 的关系
+## 6. 与 reference/specification.md 的关系
 
-本文档是 UDF API 的**权威参考**（canonical reference）。`specification.md §8` 定义了函数的设计意图和宏观分类。若两者在签名或语义上不一致，以本文档为准（本文档更接近实现）。
+本文档是 UDF API 的**权威参考**（canonical reference）。`reference/specification.md §8` 定义了函数的设计意图和宏观分类。若两者在签名或语义上不一致，以本文档为准（本文档更接近实现）。

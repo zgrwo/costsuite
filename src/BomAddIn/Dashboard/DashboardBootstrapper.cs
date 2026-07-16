@@ -41,17 +41,33 @@ namespace BomAddIn.Dashboard
 
         private static void RunWpfApplication()
         {
-            _app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            // 尝试创建 WPF Application——WPF 单 AppDomain 只允许一个实例。
+            // 若 TaskPane 已先创建（AutoOpen → RegisterTaskPane → WpfHelper.EnsureInitialized），
+            // 则走无 Application 的轻量路径：Show + Dispatcher.PushFrame。
+            try
+            {
+                _app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+            }
+            catch (InvalidOperationException)
+            {
+                _app = null; // Application 已被 TaskPane 在 Excel 主线程创建
+            }
 
             _window = new DashboardWindow();
 
-            _window.Closed += (_, _) =>
+            if (_app != null)
             {
-                _window = null;
-                _app.Shutdown();
-            };
-
-            _app.Run(_window);
+                _window.Closed += (_, _) =>
+                {
+                    _window = null;
+                    _app.Shutdown();
+                };
+                _app.Run(_window);
+            }
+            else
+            {
+                BomAddIn.WpfHelper.RunWindowWithoutApplication(_window);
+            }
         }
 
         public static void Close()

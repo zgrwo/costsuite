@@ -8,7 +8,7 @@
 
 param(
     [string]$CertificatePath,
-    [string]$Password,
+    [SecureString]$Password,
     [switch]$UseWindowsStore,
     [switch]$SkipSigning,
     [string]$Configuration = "Release"
@@ -32,34 +32,40 @@ if (-not $xllFile) {
 Write-Host "Found XLL: $($xllFile.Name)" -ForegroundColor Green
 
 # Step 2: Sign
+# 公共 signtool 参数（SHA-256 摘要 + DigiCert 时间戳）
+$signtoolBase = @('/fd', 'SHA256', '/tr', 'http://timestamp.digicert.com', '/td', 'SHA256')
+
 if ($SkipSigning) {
     Write-Host "Signing skipped (-SkipSigning)." -ForegroundColor DarkYellow
-} elseif ($UseWindowsStore) {
+}
+elseif ($UseWindowsStore) {
     Write-Host "Signing with Windows Certificate Store..." -ForegroundColor Yellow
-    & signtool sign /fd SHA256 /a /tr http://timestamp.digicert.com /td SHA256 $xllFile.FullName
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "WARNING: Signing failed. Generating unsigned ZIP." -ForegroundColor Red
-    } else {
-        Write-Host "Signed successfully." -ForegroundColor Green
-    }
-} elseif ($CertificatePath) {
+    & signtool sign @signtoolBase /a $xllFile.FullName
+    if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: Signing failed." -ForegroundColor Red }
+    else { Write-Host "Signed successfully." -ForegroundColor Green }
+}
+elseif ($CertificatePath) {
     if (-not (Test-Path $CertificatePath)) {
         Write-Host "ERROR: Certificate not found: $CertificatePath" -ForegroundColor Red
         exit 1
     }
     Write-Host "Signing with $CertificatePath..." -ForegroundColor Yellow
-    $securePass = if ($Password) {
-        ConvertTo-SecureString -String $Password -AsPlainText -Force
+
+    # 优先使用 -Password (SecureString)，否则交互式输入（输入时字符不回显）
+    $plainPassword = if ($Password) {
+        [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($Password))
     } else {
-        Read-Host -AsSecureString "Enter certificate password"
+        $secureInput = Read-Host -AsSecureString "Enter certificate password"
+        [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureInput))
     }
-    & signtool sign /fd SHA256 /f $CertificatePath /p $Password /tr http://timestamp.digicert.com /td SHA256 $xllFile.FullName
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "WARNING: Signing failed." -ForegroundColor Red
-    } else {
-        Write-Host "Signed successfully." -ForegroundColor Green
-    }
-} else {
+
+    & signtool sign @signtoolBase /f $CertificatePath /p $plainPassword $xllFile.FullName
+    if ($LASTEXITCODE -ne 0) { Write-Host "WARNING: Signing failed." -ForegroundColor Red }
+    else { Write-Host "Signed successfully." -ForegroundColor Green }
+}
+else {
     Write-Host "No certificate provided. Skipping signing." -ForegroundColor DarkYellow
 }
 

@@ -4,7 +4,7 @@
 
 > **核心变更**: SQLite + DuckDB 本地主库意味着"数据库永远在线"。离线仅意味着"ERP 同步暂停"——这与传统服务端数据库的离线完全不同。
 
-> **来源**: Excel-DNA 社区实践、SQLite 同步模式研究、本项目 [specification.md §10](../docs/specification.md#10-离线模式规格)  
+> **来源**: Excel-DNA 社区实践、SQLite 同步模式研究、本项目 [specification.md §10](../docs/reference/specification.md#10-离线模式规格)  
 > **v1.1 更新**: 数据存储改为 SQLite 本地主库 + DuckDB 分析引擎。离线仅是 ERP 同步暂停，本地读写始终可用。  
 > **适用范围**: 离线模式、SQLite 缓存、网络检测、同步策略
 

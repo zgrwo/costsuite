@@ -31,8 +31,8 @@ git clone <repo-url>
 ```
 
 > 🏗️ [项目结构](./docs/project-structure.md) — 程序集清单、依赖图、命名空间、Sprint 0 骨架清单  
-> 📐 [技术规格](./docs/specification.md) — 架构、数据模型、引擎算法、安全策略  
-> 📅 [实施计划](./docs/plan.md) — Sprint 路线图、风险登记册、CI/CD
+> 📐 [技术规格](./docs/reference/specification.md) — 架构、数据模型、引擎算法、安全策略  
+> 📅 [实施计划](./docs/reference/plan.md) — Sprint 路线图、风险登记册、CI/CD
 
 ---
 
@@ -72,10 +72,10 @@ BomAddIn (UI + Bridge + UDF, net472)
 | 新成员快速了解项目 | [CONTEXT.md](./docs/CONTEXT.md) |
 | 安装和使用插件 | [user-manual.md](./docs/user-manual.md) |
 | 查函数语法和示例 | [api-reference.md](./docs/api-reference.md) |
-| 了解技术架构 | [specification.md](./docs/specification.md) |
-| 看项目排期和风险 | [plan.md](./docs/plan.md) |
+| 了解技术架构 | [specification.md](./docs/reference/specification.md) |
+| 看项目排期和风险 | [plan.md](./docs/reference/plan.md) |
 | 找代码该放哪个文件夹 | [project-structure.md](./docs/project-structure.md) |
-| 理解设计决策的由来 | [review.md](./docs/review.md) |
+| 理解设计决策的由来 | [review.md](./docs/reference/review.md) |
 | 了解开发模式和陷阱 | [skills/](./skills/) |
 | 登记或查看豁免问题 | [.claude/exemptions.md](./.claude/exemptions.md) |
 

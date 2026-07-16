@@ -5,7 +5,7 @@
 > **受众**: 开发者、架构师  
 > **单源真理**: 架构设计、数据模型、安全策略、性能 KPI 以本文档为准  
 > **配套文档**: [plan.md](./plan.md)（Sprint 排期）、[api-reference.md](./api-reference.md)（UDF 权威合约）、[project-structure.md](./project-structure.md)（文件路由）  
-> **v1.1 变更**: 数据存储方案由 SQL Server/PostgreSQL → SQLite (CRUD) + DuckDB (分析)。参见 [review.md](./review.md) 和 [foundation-audit.md](./foundation-audit.md) 原始评估。
+> **v1.1 变更**: 数据存储方案由 SQL Server/PostgreSQL → SQLite (CRUD) + DuckDB (分析)。参见 [review.md](./review.md) 原始评估。
 
 ---
 

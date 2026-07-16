@@ -2,7 +2,7 @@
 
 > **日期**: 2026-07-12  
 > **用途**: Sprint 0 骨架搭建的工作输入、全团队统一的文件路由与命名规范  
-> **配套文档**: [specification.md](./specification.md)（架构定义）、[plan.md](./plan.md)（Sprint 0 骨架搭建任务）
+> **配套文档**: [specification.md](./reference/specification.md)（架构定义）、[plan.md](./reference/plan.md)（Sprint 0 骨架搭建任务）
 
 ---
 
@@ -50,13 +50,13 @@ BomAddIn.sln
 │
 ├── docs/                                   ← 项目文档
 │   ├── CONTEXT.md                         ← 项目上下文（新成员入口）
-│   ├── plan.md                             ← 实施计划
-│   ├── specification.md                    ← 技术规格
 │   ├── project-structure.md                ← 项目结构规范（本文档）
 │   ├── api-reference.md                    ← UDF API 权威合约
 │   ├── user-manual.md                      ← 最终用户手册
-│   ├── review.md                           ← 历史评审快照（只读）
-│   ├── foundation-audit.md                 ← 质量审计快照（只读）
+│   ├── reference/                           ← 历史参考文档 (gitignored)
+│   │   ├── plan.md                         ← 实施计划（📸）
+│   │   ├── specification.md                ← 技术规格（📸）
+│   │   └── review.md                       ← 独立评审（📸）
 │   └── archive/                            ← 历史归档（gitignored）
 │
 ├── skills/                                 ← 可复用开发模式
@@ -88,25 +88,25 @@ BomAddIn.sln
 | 文档 | 职责（它是...的唯一权威来源） | 不负责（去别处找） | 更新触发条件 |
 |------|---------------------------|-------------------|-------------|
 | **CONTEXT.md** | 项目上下文（问题域、用户、技术选择理由、术语表） | 所有文档的"为什么" | 新成员（5 分钟阅读） | 重大定位调整时 |
-| **plan.md** | Sprint 排期、风险登记册、CI/CD 流程、测试排期、里程碑、外部依赖 | 架构设计 → spec；文件路由 → project-structure | Sprint 计划变更、新风险识别、工具链调整 |
-| **specification.md** | 架构设计、数据模型、BOM 引擎算法、差异引擎维度、WPF 规格、同步策略、离线模式、安全策略、性能 KPI、Excel 兼容矩阵 | UDF 详细签名 → api-reference；操作步骤 → user-manual；代码范式 → skills/ | 架构决策变更、新增功能模块、性能目标修改 |
-| **project-structure.md** | 程序集清单、依赖关系图、文件夹路由、命名空间约定、文件命名规则、.dna 配置、文档分工表（本文） | 架构设计 → spec；Sprint 排期 → plan | 新增/合并程序集、命名规范变更 |
-| **api-reference.md** | UDF 函数签名、参数类型与约束、返回值语义、错误码、使用示例 | 函数设计意图 → spec §8；用户场景 → user-manual | 新增 UDF、修改函数签名或行为 |
-| **user-manual.md** | 安装步骤、功能操作指南、角色权限说明、故障排查、快速参考 | 技术细节 → spec；函数语法 → api-reference；代码开发 → skills/ | 新功能上线、UI 变更、新增常见问题 |
+| **project-structure.md** | 程序集清单、依赖关系图、文件夹路由、命名空间约定、文件命名规则、.dna 配置、文档分工表（本文） | 架构设计 → reference/spec；Sprint 排期 → reference/plan | 新增/合并程序集、命名规范变更 |
+| **api-reference.md** | UDF 函数签名、参数类型与约束、返回值语义、错误码、使用示例 | 函数设计意图 → reference/spec §8；用户场景 → user-manual | 新增 UDF、修改函数签名或行为 |
+| **user-manual.md** | 安装步骤、功能操作指南、角色权限说明、故障排查、快速参考 | 技术细节 → reference/spec；函数语法 → api-reference；代码开发 → skills/ | 新功能上线、UI 变更、新增常见问题 |
 
-### 快照文档（只读，历史记录）
+### 快照文档（只读，历史记录 — gitignored）
 
 | 文档 | 性质 | 何时读 |
 |------|------|--------|
-| **review.md** | 📸 对原始 `Plan and Specification.txt` 的独立评审 | 追溯"为什么采用了这些改进"时查阅 |
-| **foundation-audit.md** | 📸 文档体系一致性审计快照 | 新成员了解文档质量标准时查阅 |
+| **reference/plan.md** | 📸 项目实施计划原始快照 | 追溯 Sprint 排期、风险决策时查阅 |
+| **reference/specification.md** | 📸 技术规格原始快照 | 追溯架构设计决策时查阅 |
+| **reference/review.md** | 📸 对原始 `Plan and Specification.txt` 的独立评审 | 追溯"为什么采用了这些改进"时查阅 |
+
 | **archive/** | 📦 原始文档归档（gitignored） | 极少需要——仅当怀疑当前文档偏离原始意图时 |
 
 ### skills/ 目录
 
 | 定位 | 说明 |
 |------|------|
-| **不是规格** | Skill 不定义"是什么"（→ spec），不排期"何时做"（→ plan） |
+| **不是规格** | Skill 不定义"是什么"（→ reference/spec），不排期"何时做"（→ reference/plan） |
 | **是模式** | Skill 是经过验证的代码范式——"怎么写"、"陷阱是什么"、"检查清单" |
 | **来源于外部** | 每个 skill 标注了借鉴的 GitHub 项目 |
 | **被 CLAUDE.md 引用** | 任务路由表中的"应该读"列指向 skill |
@@ -377,7 +377,7 @@ database/
 
 ## 4.7 数据库
 
-> **数据模型权威定义**: 见表结构、ER 图、外键关系 → [spec §4](specification.md#4-数据模型)。  
+> **数据模型权威定义**: 见表结构、ER 图、外键关系 → [spec §4](reference/specification.md#4-数据模型)。  
 > **DDL 实现**: 见 `src/BomAddIn.Data/Migrations/S001_InitialSchema.sql`。
 
 ### 4.7.1 种子数据规模 (500 物料基准)
@@ -620,4 +620,4 @@ A: 线程安全测试需要加载 Excel-DNA 并实际调用 COM API，必须在�
 
 **Q: 为什么不直接用 Clean Architecture 的 UseCase/Entity 命名？**
 
-A: 六层架构是原文档的设计决策。本文档保持与 specification.md 的术语一致（BLL / DAL / Engine），降低团队的认知转换成本。可逐 Sprint 渐进式重构为 Clean Architecture 术语。
+A: 六层架构是原文档的设计决策。本文档保持与 reference/specification.md 的术语一致（BLL / DAL / Engine），降低团队的认知转换成本。可逐 Sprint 渐进式重构为 Clean Architecture 术语。

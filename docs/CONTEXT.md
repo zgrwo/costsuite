@@ -2,7 +2,7 @@
 
 > **受众**: 新加入团队的开发者  
 > **阅读时间**: 5 分钟  
-> **读完下一步**: [project-structure.md](./project-structure.md)（找代码放哪）→ [specification.md](./specification.md)（理解架构）  
+> **读完下一步**: [project-structure.md](./project-structure.md)（找代码放哪）→ [specification.md](./reference/specification.md)（理解架构）  
 
 ---
 
@@ -73,8 +73,8 @@ Excel 宿主 ← Excel-DNA (C# .dll → .xll)
 新加入团队：
   1. 本文档 (CONTEXT.md)         ← 你现在在这里
   2. project-structure.md        ← 代码在哪、怎么组织
-  3. specification.md            ← 架构和数据模型
-  4. plan.md                     ← Sprint 和风险
+  3. reference/specification.md            ← 架构和数据模型
+  4. reference/plan.md                     ← Sprint 和风险
   5. skills/                     ← 写代码前读对应的 skill
 
 已有上下文，需要写代码：
@@ -114,9 +114,9 @@ A: Excel-DNA 要求所有使用其 API 的代码在同一 AppDomain。拆分出�
 
 A: 线程安全测试需要加载真实的 Excel-DNA 和 COM API。单元测试可以用 `net8.0`，但统一为 `net472` 简化 CI。
 
-**Q: 我可以直接改 `review.md` 或 `foundation-audit.md` 吗？**
+**Q: 我可以直接改 `reference/review.md` 吗？**
 
-A: 不可以。这两个是 📸 只读快照——它们记录的是某个时间点的评审结论，不是持续更新的文档。
+A: 不可以。这是 📸 只读快照——记录的是某个时间点的评审结论，不是持续更新的文档。
 
 ---
 

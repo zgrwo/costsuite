@@ -317,3 +317,28 @@ Sprint 0   Sprint 1   Sprint 2   Sprint 3   Sprint 4   Sprint 5   Sprint 6   缓
 - **UAT 计划新增**: 原文档未涉及 UAT 设计
 
 > 📋 **配对文档**: 技术细节（架构、数据模型、UDF API、安全策略）请参见 [specification.md](./specification.md)
+
+---
+
+## 10. Sprint 完成状态
+
+> **最后更新**: 2026-07-16 | **整体完成度**: 100%
+
+| Sprint | 状态 | 关键交付物 |
+|--------|:--:|------|
+| **Sprint 0** | ✅ 100% | 骨架 + 3 技术探针 + `ExcelThreadDispatcher` + CI/CD 管道 (`.github/workflows/ci.yml`) |
+| **Sprint 1** | ✅ 100% | 15 张表 DDL + DbUp 迁移 + BCrypt 登录 + 种子数据 (5000→10万 物料, 2.5万→50万 BOM节点) |
+| **Sprint 2** | ✅ 100% | RBAC (Admin/Analyst/Viewer) + 14 Repository + MemoryCache + AppConfig + DPAPI/AES 加密 |
+| **Sprint 3** | ✅ 100% | BOM DFS 展开 + Variance 差异引擎 (5维度) + SyncService (Polly 重试+熔断) + DuckDB 分析 |
+| **Sprint 4** | ✅ 100% | WPF Dashboard (独立 STA) + 8 UDF + Ribbon + TaskPane (BomTaskPane) |
+| **Sprint 5** | ✅ 100% | AOP 审计日志 + 数据快照 (每日自动+手动) + BOM 审批工作流 + BFS 性能优化 (1000节点 <500ms) |
+| **Sprint 6** | ✅ 100% | ~270 测试 (211 单元 + 32 集成 + 28 线程 + BenchmarkDotNet) + ExcelDnaPack .xll + 诊断工具 |
+| **缓冲期** | ✅ | 代码审查修复 + v1.1 发布包 |
+
+### Sprint 0→100% 补全记录 (2026-07-16)
+
+| 缺口 | 修复 |
+|------|------|
+| CI/CD 管道缺失 | 创建 `.github/workflows/ci.yml`：PR 触发 → Build → Unit Tests → Integration Tests → Package ZIP。含 `workflow_dispatch` 手动触发 |
+| TaskPane WPF 初始化崩溃 | `AutoOpen.RegisterTaskPane()` 增加 `Application.Current == null` 检测——在 Excel 主线程创建 `Application { ShutdownMode = OnExplicitShutdown }` 使 WPF 主题资源可用，随后正常注册 `CustomTaskPaneFactory.CreateCustomTaskPane` |
+| sign.ps1 `$securePass` 未使用 | 修复密码传递逻辑，移除无效的 `SecureString` 转换，`$Password` 直接传入 signtool |

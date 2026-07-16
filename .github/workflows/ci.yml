@@ -1,0 +1,115 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: 8.0.x
+  CONFIGURATION: Release
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore
+      run: dotnet restore BomAddIn.sln
+
+    - name: Build
+      run: dotnet build BomAddIn.sln --configuration ${{ env.CONFIGURATION }} --no-restore
+
+    - name: Tests
+      strategy:
+        matrix:
+          test:
+            - { project: BomAddIn.UnitTests,         log: unit-tests,          continue: false }
+            - { project: BomAddIn.IntegrationTests,    log: integration-tests,   continue: false }
+            - { project: BomAddIn.ThreadingTests,      log: threading-tests,     continue: true  }
+            - { project: BomAddIn.PerformanceTests,    log: perf-tests,          continue: true  }
+      continue-on-error: ${{ matrix.test.continue }}
+      run: >
+        dotnet test tests/${{ matrix.test.project }}/${{ matrix.test.project }}.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=${{ matrix.test.log }}.trx"
+        --verbosity normal
+
+    # TODO: SonarQube — add SonarCloud/SonarQube scan step (plan §5.1: "SonarQube 无 Critical")
+    # TODO: Coverage  — add coverlet.collector + ReportGenerator with 80% threshold gate
+    # TODO: Security  — add CodeQL analysis workflow (.github/workflows/codeql.yml)
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: "**/*.trx"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output
+        path: |
+          src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472/publish/**/*.xll
+          src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472/**/*.dll
+          src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472/**/*.dna
+
+  package:
+    name: Package
+    runs-on: windows-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-output
+        path: build-output
+
+    - name: Package ZIP
+      shell: pwsh
+      run: |
+        $distDir = "build/dist"
+        New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+
+        $version = "1.1.0-ci.${{ github.run_number }}"
+        $zipName = "BomAddIn-v$version-${{ env.CONFIGURATION }}.zip"
+        $zipPath = Join-Path $distDir $zipName
+
+        # ExcelDnaPack 产物 (.xll) 和依赖 DLL 已在 build-and-test 作业中编译
+        $files = Get-ChildItem -Path build-output -Recurse -File |
+          Where-Object { $_.Extension -match '\.(xll|dll|dna|config)$' }
+
+        if ($files.Count -eq 0) {
+          Write-Error "No build artifacts found. Check build-output directory."
+          exit 1
+        }
+
+        Compress-Archive -Path $files.FullName -DestinationPath $zipPath -Force
+        Write-Host "Distribution ZIP: $zipPath"
+        Write-Host "Files: $($files.Count)"
+
+    - name: Upload distribution
+      uses: actions/upload-artifact@v4
+      with:
+        name: distribution
+        path: build/dist/*.zip

@@ -73,7 +73,8 @@ namespace BomAddIn
                     try { GenerateSeedDataIfNeeded(ct); }
                     catch (Exception ex) { AppLogger.Warn($"种子数据检查失败: {ex.Message}", typeof(BomAddInStartup)); }
                 });
-                // RegisterTaskPane 会导致 Excel 崩溃 — WPF 初始化问题，待调查
+                RegisterTaskPane();
+                RegisterExcelCloseEvent();
             }
             catch (Exception ex) { ShowStartupError("启动异常", ex); }
         }
@@ -97,6 +98,7 @@ namespace BomAddIn
 
         public void AutoClose()
         {
+            WpfHelper.Shutdown();
             (_serviceProvider as IDisposable)?.Dispose();
             _serviceProvider = null;
         }
@@ -181,6 +183,11 @@ namespace BomAddIn
         {
             try
             {
+                // WPF Application 需在当前线程存在以解析主题资源（默认 Button/TextBox 样式等）。
+                // 使用 WpfHelper 协调——WPF 单 AppDomain 只允许一个 Application，
+                // DashboardBootstrapper 在独立 STA 线程创建前会检查 IsApplicationCreated。
+                WpfHelper.EnsureInitialized();
+
                 var app = (Microsoft.Office.Interop.Excel.Application)ExcelDnaUtil.Application;
                 var taskPane = CustomTaskPaneFactory.CreateCustomTaskPane(
                     typeof(BomTaskPane), "BOM Suite", app);
@@ -196,7 +203,14 @@ namespace BomAddIn
             }
             catch (System.Runtime.InteropServices.COMException)
             {
-                // TaskPane 注册失败不阻止启动（非 Excel 宿主环境下）
+                // 非 Excel 宿主（如诊断工具）——TaskPane 不可用，静默跳过
+            }
+            catch (Exception ex)
+            {
+                // 其他 WPF/Excel-DNA 异常（XamlParseException、InvalidOperationException 等）
+                // 不阻止启动——TaskPane 是辅助功能
+                Infrastructure.Logging.AppLogger.Warn(
+                    $"TaskPane 注册失败: {ex.Message}", typeof(BomAddInStartup));
             }
         }
 

@@ -24,7 +24,7 @@
 
 - **只改该改的**。如果任务是"修复 BOM 展开的死锁"，不要顺带重构 `VarianceCalculator` 的命名约定。
 - **匹配现有风格**。即使你更喜欢 `_camelCase`，如果周围代码用 `PascalCase`，保持一致。
-- **发现无关的死代码/注释/格式问题时，提出来——不要擅自改**。在 review.md 中记录，让团队决定。
+- **发现无关的死代码/注释/格式问题时，提出来——不要擅自改**。在 reference/review.md 中记录，让团队决定。
 - **只清理因你的改动而变成垃圾的 import / 变量 / 函数**。
 
 ### 4. 目标驱动 (Goal-Driven Execution)
@@ -84,12 +84,12 @@
 
 | 规则 | 示例 |
 |------|------|
-| 架构定义 → 唯一在 `docs/specification.md` | plan.md 不重复画架构图，只写 `见 spec §2` |
-| Sprint 排期 → 唯一在 `docs/plan.md` | spec 不写时间线，skill 不写 Sprint 归属 |
+| 架构定义 → 唯一在 `docs/reference/specification.md` | plan.md 不重复画架构图，只写 `见 spec §2` |
+| Sprint 排期 → 唯一在 `docs/reference/plan.md` | spec 不写时间线，skill 不写 Sprint 归属 |
 | 文件路由 → 唯一在 `docs/project-structure.md` | skill 不重复声明命名空间约定 |
 | 代码范式 → 唯一在 `skills/*.md` | spec 不重复写完整代码示例 |
-| 豁免决策 → 唯一在 `.claude/exemptions.md` | 不在 review.md 中重复登记 |
-| 约束红线 → 定义在 `docs/specification.md` §1.2 | 其余文档只引用，不自行解释 |
+| 豁免决策 → 唯一在 `.claude/exemptions.md` | 不在 docs/reference/review.md 中重复登记 |
+| 约束红线 → 定义在 `docs/reference/specification.md` §1.2 | 其余文档只引用，不自行解释 |
 
 ### 违反信号
 
@@ -114,7 +114,7 @@ BomAddIn (UI+Bridge+UDF, net472)
 
 ### 三条红线
 
-> 定义在 [spec §1.2](docs/specification.md#12-v10-核心约束)。V1.0 离线仅限只读 → V1.1 已放宽为 ERP 同步暂停。
+> 定义在 [spec §1.2](docs/reference/specification.md#12-v10-核心约束)。V1.0 离线仅限只读 → V1.1 已放宽为 ERP 同步暂停。
 
 | 红线 | 含义 |
 |------|------|
@@ -134,13 +134,13 @@ BomAddIn (UI+Bridge+UDF, net472)
 | 新建一个 Service / Repository | `skills/excel-dna-di-startup.md` §2 | 对应 `.cs` 文件 + DI 注册 |
 | 添加一个新 UDF | `docs/api-reference.md` + `skills/excel-udf-best-practices.md` | `docs/api-reference.md`（新函数）+ 新的 `src/BomAddIn/UDF/XxxFunctions.cs` |
 | 修改 UDF 行为/签名 | `docs/api-reference.md`（当前合约） | `docs/api-reference.md` + 对应 UDF 代码 |
-| 修改 BOM 数据表结构 | `docs/specification.md` §4 + `skills/bom-modeling-patterns.md` | `docs/specification.md`（表定义）+ 迁移脚本 |
-| 在 WPF 仪表盘中加一个新面板 | `skills/excel-dna-wpf-dashboard.md` | 新的 View + ViewModel + 更新 `docs/specification.md` §7.3 |
+| 修改 BOM 数据表结构 | `docs/reference/specification.md` §4 + `skills/bom-modeling-patterns.md` | `docs/reference/specification.md`（表定义）+ 迁移脚本 |
+| 在 WPF 仪表盘中加一个新面板 | `skills/excel-dna-wpf-dashboard.md` | 新的 View + ViewModel + 更新 `docs/reference/specification.md` §7.3 |
 | 修改离线/同步逻辑 | `skills/offline-first-architecture.md` | `BomAddIn.Data/Sync/` 或 `BomAddIn.Infrastructure/Network/` |
-| 调整 Sprint 计划 / 排期 | `docs/plan.md` §2 | `docs/plan.md` |
+| 调整 Sprint 计划 / 排期 | `docs/reference/plan.md` §2 | `docs/reference/plan.md` |
 | 写用户文档 / FAQ | `docs/user-manual.md` | `docs/user-manual.md` |
 | 登记一个豁免问题 | `.claude/exemptions.md` | `.claude/exemptions.md` |
-| 审查代码安全性 | `docs/specification.md` §11 | `.claude/review-reports/` |
+| 审查代码安全性 | `docs/reference/specification.md` §11 | `.claude/review-reports/` |
 | 排查线程 Bug | `skills/excel-dna-threading.md` §4（反模式表） | 代码 + `.claude/exemptions.md`（如需豁免） |
 | 准备 Sprint 0 骨架 | `docs/project-structure.md` §10 | 新建 `.sln` + `.csproj` + `.dna` |
 | 不确定该读什么 | `docs/CONTEXT.md` → 文档阅读顺序 | — |
@@ -164,7 +164,7 @@ BomAddIn (UI+Bridge+UDF, net472)
 
 | 步骤 | 动作 | 门禁 |
 |:--:|------|------|
-| 1 | 确认 Sprint（`docs/plan.md` → §2） | — |
+| 1 | 确认 Sprint（`docs/reference/plan.md` → §2） | — |
 | 2 | **🛑 强制：读所有相关 skill**（见下方 Sprint↔Skill 映射表） | 未读 = 不许写代码 |
 | 3 | 写验证标准 | 用 spec KPI 反推预期行为 |
 | 4 | 实现 | 代码范式以 skill 为准，不以记忆为准 |
