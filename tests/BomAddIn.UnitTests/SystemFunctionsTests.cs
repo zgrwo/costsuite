@@ -44,7 +44,7 @@ public class SystemFunctionsTests : IDisposable
         var result = SystemFunctions.SyncStatus();
 
         // Assert
-        result.Should().Be("Never synced");
+        result.Should().Be("从未同步");
     }
 
     [Fact]
@@ -60,8 +60,7 @@ public class SystemFunctionsTests : IDisposable
 
         // Assert — age < 1 hour => "Synced {minutes}m ago", essentially 0 minutes
         var resultStr = result.Should().BeAssignableTo<string>().Which;
-        resultStr.Should().StartWith("Synced ");
-        resultStr.Should().EndWith("m ago");
+        resultStr.Should().EndWith("分钟前同步");
     }
 
     [Fact]
@@ -77,8 +76,7 @@ public class SystemFunctionsTests : IDisposable
 
         // Assert — "Synced {hours}h ago"
         var resultStr = result.Should().BeAssignableTo<string>().Which;
-        resultStr.Should().StartWith("Synced ");
-        resultStr.Should().EndWith("h ago");
+        resultStr.Should().EndWith("小时前同步");
     }
 
     [Fact]
@@ -94,7 +92,7 @@ public class SystemFunctionsTests : IDisposable
         var result = SystemFunctions.SyncStatus();
 
         // Assert — "Synced yyyy-MM-dd HH:mm"
-        result.Should().Be("Synced 2026-07-10 08:30");
+        result.Should().Be("上次同步: 2026-07-10 08:30");
     }
 
     [Fact]

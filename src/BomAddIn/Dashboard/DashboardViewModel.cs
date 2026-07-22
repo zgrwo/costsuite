@@ -255,8 +255,11 @@ namespace BomAddIn.Dashboard
                 {
                     using var scope = _services.CreateScope();
                     var sp = scope.ServiceProvider;
+                    var authService = sp.GetRequiredService<IAuthService>();
+                    var currentUser = authService.GetCurrentUser(0);
+                    var callerRole = currentUser?.Role ?? UserRole.Viewer;
                     var syncService = sp.GetRequiredService<ISyncService>();
-                    return await syncService.SyncAllAsync(UserRole.Admin);
+                    return await syncService.SyncAllAsync(callerRole);
                 });
 
                 if (result.Success)

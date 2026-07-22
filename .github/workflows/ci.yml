@@ -38,19 +38,55 @@ jobs:
       strategy:
         matrix:
           test:
-            - { project: BomAddIn.UnitTests,         log: unit-tests,          continue: false }
-            - { project: BomAddIn.IntegrationTests,    log: integration-tests,   continue: false }
-            - { project: BomAddIn.ThreadingTests,      log: threading-tests,     continue: true  }
-            - { project: BomAddIn.PerformanceTests,    log: perf-tests,          continue: true  }
+            - { project: BomAddIn.UnitTests,         log: unit-tests,          continue: false, coverage: true  }
+            - { project: BomAddIn.IntegrationTests,    log: integration-tests,   continue: false, coverage: true  }
+            - { project: BomAddIn.ThreadingTests,      log: threading-tests,     continue: true,  coverage: false }
+            - { project: BomAddIn.PerformanceTests,    log: perf-tests,          continue: true,  coverage: false }
       continue-on-error: ${{ matrix.test.continue }}
       run: >
         dotnet test tests/${{ matrix.test.project }}/${{ matrix.test.project }}.csproj
         --configuration ${{ env.CONFIGURATION }} --no-build
         --logger "trx;LogFileName=${{ matrix.test.log }}.trx"
+        ${{ matrix.test.coverage && '--collect:"XPlat Code Coverage" --results-directory coverage/${{ matrix.test.project }}' || '' }}
         --verbosity normal
 
+    - name: Generate coverage report
+      if: always()
+      shell: pwsh
+      run: |
+        dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.3.8
+        $coverageDirs = @("coverage/BomAddIn.UnitTests", "coverage/BomAddIn.IntegrationTests")
+        $existing = @($coverageDirs | Where-Object { Test-Path $_ })
+        if ($existing.Count -gt 0) {
+          reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:HtmlSummary
+          Write-Host "Coverage report generated at coverage/report/"
+        } else {
+          Write-Host "No coverage data found, skipping report generation."
+        }
+
+    - name: Check coverage threshold (80%)
+      if: always()
+      shell: pwsh
+      run: |
+        $summaryFile = "coverage/report/Summary.txt"
+        if (-not (Test-Path $summaryFile)) {
+          Write-Host "No coverage summary found, skipping threshold check."
+          exit 0
+        }
+        $summary = Get-Content $summaryFile -Raw
+        if ($summary -match 'Line coverage[:\s]+([\d.]+)%') {
+          $lineCov = [double]$Matches[1]
+          Write-Host "Line coverage: $lineCov%"
+          if ($lineCov -lt 80.0) {
+            Write-Error "Coverage $lineCov% is below 80% threshold!"
+            exit 1
+          }
+          Write-Host "Coverage threshold met: $lineCov% >= 80%"
+        } else {
+          Write-Host "Could not parse coverage percentage from summary."
+        }
+
     # TODO: SonarQube — add SonarCloud/SonarQube scan step (plan §5.1: "SonarQube 无 Critical")
-    # TODO: Coverage  — add coverlet.collector + ReportGenerator with 80% threshold gate
     # TODO: Security  — add CodeQL analysis workflow (.github/workflows/codeql.yml)
 
     - name: Upload test results

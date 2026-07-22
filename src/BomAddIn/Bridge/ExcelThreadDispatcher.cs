@@ -78,7 +78,7 @@ namespace BomAddIn.Bridge
                     {
                         bool set = tcs.TrySetResult(action());
                         if (!set)
-                            System.Diagnostics.Debug.WriteLine("[ExcelThreadDispatcher] Result discarded: TCS already completed (timeout likely).");
+                            Infrastructure.Logging.AppLogger.Debug("Result discarded: TCS already completed (timeout likely).", typeof(ExcelThreadDispatcher));
                     }
                 }
                 catch (Exception ex)
@@ -87,7 +87,7 @@ namespace BomAddIn.Bridge
                     {
                         bool set = tcs.TrySetException(ex);
                         if (!set)
-                            System.Diagnostics.Debug.WriteLine($"[ExcelThreadDispatcher] Exception discarded: TCS already completed (timeout likely). Error: {ex.Message}");
+                            Infrastructure.Logging.AppLogger.Debug($"Exception discarded: TCS already completed (timeout likely). Error: {ex.Message}", typeof(ExcelThreadDispatcher));
                     }
                 }
             });

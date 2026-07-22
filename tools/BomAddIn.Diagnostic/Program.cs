@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using BomAddIn.Core.Services;
@@ -167,6 +168,32 @@ public class Program
         }
         catch { Console.WriteLine("[!!] 配置文件检查失败"); }
 
+        // 4. Excel 版本及位数检测 (M-6: 补全诊断覆盖)
+        try
+        {
+            var excelInfo = DetectExcelVersion();
+            if (excelInfo != null)
+                Console.WriteLine($"[OK] Excel: {excelInfo}");
+            else
+                Console.WriteLine("[  ] Excel 未检测到（注册表中无安装信息）");
+        }
+        catch { Console.WriteLine("[!!] Excel 检测失败"); }
+
+        // 5. Add-in 注册状态检查 (M-6: 补全诊断覆盖)
+        try
+        {
+            var addinStatus = CheckAddinRegistration();
+            Console.WriteLine(addinStatus);
+        }
+        catch { Console.WriteLine("[!!] Add-in 注册状态检测失败"); }
+
+        // 6. 最近错误日志查看 (M-6: 补全诊断覆盖)
+        try
+        {
+            ShowRecentErrors();
+        }
+        catch { Console.WriteLine("[!!] 错误日志读取失败"); }
+
         try
         {
             var factory = CreateEnvFactory();
@@ -190,6 +217,169 @@ public class Program
         Console.WriteLine("诊断完成。按任意键退出...");
         Console.ReadKey();
     }
+
+    #region M-6: 补全诊断检查 (Excel版本 / Add-in注册 / 错误日志)
+
+    /// <summary>检测已安装的 Excel 版本及位数 (M-6)</summary>
+    private static string? DetectExcelVersion()
+    {
+        // 通过注册表检测 Excel 安装信息
+        var excelPaths = new[]
+        {
+            (name: "Excel 2016+ (64-bit)", key: @"SOFTWARE\Microsoft\Office\16.0\Excel\InstallRoot", value: "Path"),
+            (name: "Excel 2016+ (32-bit on 64-bit OS)", key: @"SOFTWARE\WOW6432Node\Microsoft\Office\16.0\Excel\InstallRoot", value: "Path"),
+        };
+
+        foreach (var (name, key, value) in excelPaths)
+        {
+            try
+            {
+                using var regKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(key);
+                if (regKey != null)
+                {
+                    var path = regKey.GetValue(value) as string;
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        // 进一步检查位数：64-bit Office 在 64-bit 注册表路径
+                        var bitness = key.Contains("WOW6432Node") ? "32-bit" : "64-bit";
+                        return $"{name} ({bitness}) @ {path}";
+                    }
+                }
+            }
+            catch { /* 继续尝试下一个 */ }
+        }
+
+        // 尝试检测 Click-to-Run 安装
+        try
+        {
+            using var c2rKey = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Microsoft\Office\ClickToRun\Configuration");
+            if (c2rKey != null)
+            {
+                var version = c2rKey.GetValue("VersionToReport") as string;
+                var platform = c2rKey.GetValue("Platform") as string ?? "unknown";
+                if (!string.IsNullOrWhiteSpace(version))
+                    return $"Microsoft 365 (Click-to-Run, {platform}) v{version}";
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>检查 BomAddIn 注册状态 (M-6)</summary>
+    private static string CheckAddinRegistration()
+    {
+        var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) ?? ".";
+
+        // 检查常见的 add-in 注册方式：ExcelDnaPack 产物 (.xll) 或 .dna 配置文件
+        var candidates = new[]
+        {
+            Path.Combine(exeDir, "BomAddIn-AddIn64.xll"),
+            Path.Combine(exeDir, "BomAddIn-AddIn.xll"),
+            Path.Combine(exeDir, "BomAddIn-AddIn64-packed.xll"),
+            Path.Combine(exeDir, "BomAddIn-AddIn-packed.xll"),
+            Path.Combine(exeDir, "BomAddIn.dna"),
+        };
+
+        // 向上查找（从 exe 目录到项目根）
+        for (int up = 0; up < 4; up++)
+        {
+            var baseDir = exeDir;
+            for (int i = 0; i < up; i++)
+                baseDir = Path.GetDirectoryName(baseDir) ?? baseDir;
+
+            foreach (var name in new[] { "BomAddIn-AddIn64-packed.xll", "BomAddIn-AddIn64.xll", "BomAddIn.dna" })
+            {
+                // 检查常见输出路径
+                foreach (var sub in new[] { "", "src/BomAddIn/bin/Release/net472/publish",
+                                            "src/BomAddIn/bin/Release/net472" })
+                {
+                    var path = string.IsNullOrEmpty(sub) ? Path.Combine(baseDir, name) : Path.Combine(baseDir, sub, name);
+                    if (File.Exists(path))
+                        return $"[OK] Add-in 文件: {path}";
+                }
+            }
+        }
+
+        return "[  ] Add-in 文件未找到（请确保已构建 Release 配置）";
+    }
+
+    /// <summary>查看最近错误日志 (M-6)</summary>
+    private static void ShowRecentErrors()
+    {
+        // 查找 NLog 日志文件
+        var logDirs = new List<string>();
+
+        // EXE 同级目录
+        var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
+        if (exeDir != null)
+        {
+            logDirs.Add(Path.Combine(exeDir, "logs"));
+            logDirs.Add(exeDir);
+        }
+
+        // %LocalAppData% 下的日志
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            logDirs.Add(Path.Combine(appData, "BomAddIn", "logs"));
+        }
+        catch { }
+
+        var logFiles = new List<string>();
+        foreach (var dir in logDirs)
+        {
+            if (Directory.Exists(dir))
+            {
+                logFiles.AddRange(Directory.GetFiles(dir, "*.log", SearchOption.TopDirectoryOnly));
+                logFiles.AddRange(Directory.GetFiles(dir, "*.txt", SearchOption.TopDirectoryOnly));
+            }
+        }
+
+        if (logFiles.Count == 0)
+        {
+            Console.WriteLine("[  ] 未找到日志文件");
+            return;
+        }
+
+        // 找最新修改的日志文件
+        logFiles.Sort((a, b) => File.GetLastWriteTimeUtc(b).CompareTo(File.GetLastWriteTimeUtc(a)));
+        var latestLog = logFiles[0];
+
+        Console.WriteLine($"[OK] 日志文件: {latestLog} ({new FileInfo(latestLog).Length / 1024} KB)");
+
+        // 读取最后几行查找 ERROR/FATAL
+        try
+        {
+            var lines = File.ReadAllLines(latestLog);
+            var recentErrors = new List<string>();
+            for (int i = lines.Length - 1; i >= 0 && recentErrors.Count < 5; i--)
+            {
+                var line = lines[i];
+                if (line.Contains("ERROR") || line.Contains("FATAL") || line.Contains("WARN"))
+                    recentErrors.Add(line.Trim());
+            }
+            recentErrors.Reverse();
+
+            if (recentErrors.Count > 0)
+            {
+                Console.WriteLine($"   最近 {recentErrors.Count} 条警告/错误:");
+                foreach (var err in recentErrors)
+                    Console.WriteLine($"     {err}");
+            }
+            else
+            {
+                Console.WriteLine("   (无最近错误记录)");
+            }
+        }
+        catch
+        {
+            Console.WriteLine("   (日志文件读取失败)");
+        }
+    }
+
+    #endregion
 
     private static void RunSeedData(string[] args)
     {

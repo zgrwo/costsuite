@@ -73,7 +73,8 @@ namespace BomAddIn.Infrastructure.Config
             }
         }
 
-        /// <summary>仅写入内存字典。需要持久化时请通过 IAppConfigRepository 写入 AppConfig 表。</summary>
+        /// <summary>仅写入内存字典，重启后丢失。需要持久化时请通过 IAppConfigRepository 写入 AppConfig 表。</summary>
+        [Obsolete("Set() 仅写入内存字典，重启后配置丢失。请使用 IAppConfigRepository 持久化。")]
         public void Set(string key, string value) =>
             _config[key] = value;
 

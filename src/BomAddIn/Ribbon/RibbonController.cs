@@ -185,17 +185,26 @@ namespace BomAddIn.Ribbon
 
                 if (confirmResult != DialogResult.OK) return;
 
-                // 4. 执行导入（后台执行，避免冻结 Excel UI）
+                // 4. 获取当前用户角色（遵循 OnSyncData 模式，从登录上下文获取实际角色）
+                UserRole callerRole;
+                using (var authScope = Services.CreateScope())
+                {
+                    var authService = authScope.ServiceProvider.GetRequiredService<IAuthService>();
+                    var currentUser = authService.GetCurrentUser(0);
+                    callerRole = currentUser?.Role ?? UserRole.Viewer;
+                }
+
+                // 5. 执行导入（后台执行，避免冻结 Excel UI）
                 ImportResult result = await Task.Run(() =>
                 {
                     using var importScope = Services.CreateScope();
                     var importImporter = importScope.ServiceProvider.GetRequiredService<IBomExcelImporter>();
                     return hasParentCode
-                        ? importImporter.ImportBomStructures(table, 1, UserRole.Admin)
-                        : importImporter.ImportMaterials(table, 1, UserRole.Admin);
+                        ? importImporter.ImportBomStructures(table, 1, callerRole)
+                        : importImporter.ImportMaterials(table, 1, callerRole);
                 });
 
-                // 5. 显示结果
+                // 6. 显示结果
                 var resultMsg = new System.Text.StringBuilder();
                 resultMsg.AppendLine(result.Success ? "导入完成!" : "导入完成（有错误）:");
                 resultMsg.AppendLine();

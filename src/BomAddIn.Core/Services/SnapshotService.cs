@@ -209,41 +209,117 @@ namespace BomAddIn.Core.Services
 
         /// <summary>
         /// 解析快照 JSON，提取每张表的记录数。
-        /// JSON 格式: {"Materials": { entry, ... }, "BomStructures": { entry, ... }, ...}
+        /// 使用字符级状态机 + 大括号深度计数，替代行级启发式匹配 (code-review H-3)。
+        /// 不依赖外部 JSON 库（Core 层零 NuGet 依赖约束）。
+        /// JSON 格式: {"capturedAt":"...","Materials": { entry, ... }, "BomStructures": { entry, ... }, ...}
         /// </summary>
         private static Dictionary<string, int> ParseSnapshotTables(string snapshotData)
         {
             var result = new Dictionary<string, int>();
-            var lines = snapshotData.Split('\n');
-            string? currentTable = null;
-            int entryCount = 0;
+            int pos = 0;
+            int len = snapshotData.Length;
 
-            foreach (var line in lines)
+            // 找到根对象的每个顶层属性，跳过 "capturedAt" 标量值
+            while (pos < len)
             {
-                var trimmed = line.Trim();
-                // 检测表头: "TableName": {
-                if (trimmed.StartsWith("\"") && trimmed.EndsWith("\": {"))
-                {
-                    if (currentTable != null)
-                        result[currentTable] = entryCount;
+                // 跳过空白
+                SkipWhitespace(snapshotData, ref pos, len);
+                if (pos >= len) break;
 
-                    currentTable = trimmed.Substring(1, trimmed.IndexOf('"', 1) - 1);
-                    entryCount = 0;
-                }
-                // 检测每行 JSON 条目（以 " 开头）
-                else if (currentTable != null && trimmed.StartsWith("\"") && trimmed.Contains(":"))
+                // 期望读到 " 开头的属性名
+                if (snapshotData[pos] != '"')
                 {
-                    entryCount++;
+                    pos++;
+                    continue;
                 }
-                // 检测表尾: }
-                else if (currentTable != null && trimmed == "}")
+
+                // 读取属性名
+                int nameStart = pos + 1;
+                int nameEnd = snapshotData.IndexOf('"', nameStart);
+                if (nameEnd < 0) break;
+                string propName = snapshotData.Substring(nameStart, nameEnd - nameStart);
+                pos = nameEnd + 1;
+
+                // 跳过 ": 和空白
+                SkipWhitespace(snapshotData, ref pos, len);
+                if (pos < len && snapshotData[pos] == ':') pos++;
+                SkipWhitespace(snapshotData, ref pos, len);
+
+                if (pos >= len) break;
+
+                // 标量值（如 "capturedAt"）→ 跳过
+                if (snapshotData[pos] == '"')
                 {
-                    result[currentTable] = entryCount;
-                    currentTable = null;
+                    pos++; // skip opening quote
+                    while (pos < len && snapshotData[pos] != '"')
+                    {
+                        if (snapshotData[pos] == '\\') pos++; // skip escaped char
+                        pos++;
+                    }
+                    pos++; // skip closing quote
+                    continue;
                 }
+
+                // 对象值（表数据）→ 计数字段数
+                if (snapshotData[pos] == '{')
+                {
+                    int entryCount = CountTopLevelFields(snapshotData, ref pos, len);
+                    result[propName] = entryCount;
+                    continue;
+                }
+
+                pos++;
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// 从当前位置开始（pos 指向 '{'），统计根对象内的顶层字段数。
+        /// 消费整个对象（结束时 pos 指向 '}' 之后）。
+        /// </summary>
+        private static int CountTopLevelFields(string data, ref int pos, int len)
+        {
+            int count = 0;
+            int depth = 0;
+            bool inString = false;
+
+            while (pos < len)
+            {
+                char c = data[pos];
+                pos++;
+
+                if (inString)
+                {
+                    if (c == '\\') { pos++; continue; } // 跳过转义字符
+                    if (c == '"') inString = false;
+                    continue;
+                }
+
+                switch (c)
+                {
+                    case '"':
+                        inString = true;
+                        // 深度为 1 时遇到字符串开头 → 这是一个顶层字段
+                        if (depth == 1) count++;
+                        break;
+                    case '{':
+                        depth++;
+                        break;
+                    case '}':
+                        depth--;
+                        if (depth == 0) return count; // 当前对象结束
+                        break;
+                }
+            }
+
+            return count;
+        }
+
+        private static void SkipWhitespace(string data, ref int pos, int len)
+        {
+            while (pos < len && (data[pos] == ' ' || data[pos] == '\t' || data[pos] == '\n' || data[pos] == '\r' || data[pos] == ','))
+                pos++;
         }
     }
 }

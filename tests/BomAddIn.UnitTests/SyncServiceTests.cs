@@ -71,6 +71,29 @@ public class SyncServiceTests
         _authzMock.Verify(a => a.Demand(UserRole.Admin, BomOperation.SyncTrigger), Times.Once);
     }
 
+    // H-1/H-2 回归: RBAC 拒绝测试 — Viewer 角色调用 SyncAllAsync 应触发 Demand 并被拒绝
+    [Fact]
+    public async Task SyncAll_ViewerRole_PassesRoleToDemand()
+    {
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(false);
+
+        await _service.SyncAllAsync(UserRole.Viewer);
+
+        // 验证 Demand 被调用时传入的是 Viewer（而非硬编码 Admin）
+        _authzMock.Verify(a => a.Demand(UserRole.Viewer, BomOperation.SyncTrigger), Times.Once);
+    }
+
+    [Fact]
+    public async Task SyncAll_AnalystRole_PassesRoleToDemand()
+    {
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(false);
+
+        await _service.SyncAllAsync(UserRole.Analyst);
+
+        // Analyst 有 SyncTrigger 权限
+        _authzMock.Verify(a => a.Demand(UserRole.Analyst, BomOperation.SyncTrigger), Times.Once);
+    }
+
     [Fact]
     public void GetLastSyncTime_NoSyncLog_ReturnsNull()
     {

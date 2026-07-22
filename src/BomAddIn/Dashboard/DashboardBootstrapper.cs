@@ -66,6 +66,8 @@ namespace BomAddIn.Dashboard
             }
             else
             {
+                // H-4 fix: 在 RunWindowWithoutApplication 路径也注册 Closed 事件清理 _window
+                _window.Closed += (_, _) => { _window = null; };
                 BomAddIn.WpfHelper.RunWindowWithoutApplication(_window);
             }
         }

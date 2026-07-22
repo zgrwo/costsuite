@@ -177,7 +177,7 @@ namespace BomAddIn.Core.Services
                     NodeCode = $"MAT-{materialId}",
                     NodeDescription = $"库存差异比较 (V1.2 待实现): {warehouseA} @{dateA:yyyy-MM-dd} vs @{dateB:yyyy-MM-dd}",
                     ChangeType = VarianceChangeType.Unchanged,
-                    Dimension = VarianceDimension.Price, // 占位，V1.2 应新增 VarianceDimension.Inventory
+                    Dimension = VarianceDimension.Inventory,
                     OldValue = quantityA.ToString("F2"),
                     NewValue = quantityB.ToString("F2")
                 }
@@ -197,7 +197,7 @@ namespace BomAddIn.Core.Services
                     NodeCode = $"EST-{estimateId}",
                     NodeDescription = $"预算差异比较 (V1.2 待实现): 预估 {estimatedCost:C} vs 实际 {actualCost:C}",
                     ChangeType = VarianceChangeType.Unchanged,
-                    Dimension = VarianceDimension.Price, // 占位，V1.2 应新增 VarianceDimension.Budget
+                    Dimension = VarianceDimension.Budget,
                     OldValue = estimatedCost.ToString("F2"),
                     NewValue = actualCost.ToString("F2")
                 }

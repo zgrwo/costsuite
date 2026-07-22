@@ -23,15 +23,15 @@ namespace BomAddIn.UDF.Functions
                 var lastSync = syncService.GetLastSyncTime();
 
                 if (lastSync == null)
-                    return "Never synced";
+                    return "从未同步";
 
                 var age = DateTime.UtcNow - lastSync.Value;
                 if (age.TotalHours < 1)
-                    return $"Synced {age.TotalMinutes:F0}m ago";
+                    return $"{age.TotalMinutes:F0} 分钟前同步";
                 if (age.TotalHours < 24)
-                    return $"Synced {age.TotalHours:F1}h ago";
+                    return $"{age.TotalHours:F1} 小时前同步";
 
-                return $"Synced {lastSync:yyyy-MM-dd HH:mm}";
+                return $"上次同步: {lastSync:yyyy-MM-dd HH:mm}";
             }
             catch (Exception ex)
             {
