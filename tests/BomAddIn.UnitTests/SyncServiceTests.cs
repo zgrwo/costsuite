@@ -265,4 +265,96 @@ public class SyncServiceTests
                 It.IsAny<IDbConnection>(), It.IsAny<IDbTransaction>()),
             Times.Once);
     }
+
+    // ═══ M-4a: 离线模式 + SyncService 边缘用例 ═══
+
+    [Fact]
+    public async Task SyncAll_PartialFailure_OnePullFails_OthersProceed()
+    {
+        // Arrange: Materials 成功，Prices 抛出异常，其余成功
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(true);
+        _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<Material>());
+        _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+            .ThrowsAsync(new InvalidOperationException("ERP price service unavailable"));
+        _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<InventoryRecord>());
+        _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<OrderRecord>());
+        _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<CapacityRecord>());
+
+        // Act
+        var result = await _service.SyncAllAsync(UserRole.Admin);
+
+        // Assert: 整体失败，错误消息包含失败的 Pull
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("Prices");
+        result.ErrorMessage.Should().Contain("1/5");
+    }
+
+    [Fact]
+    public async Task SyncAll_AllFivePullsFail_ReportsAllErrors()
+    {
+        // Arrange: 全部 5 个 Pull 失败
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(true);
+        _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+            .ThrowsAsync(new Exception("M1"));
+        _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+            .ThrowsAsync(new Exception("P1"));
+        _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+            .ThrowsAsync(new Exception("I1"));
+        _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+            .ThrowsAsync(new Exception("O1"));
+        _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+            .ThrowsAsync(new Exception("C1"));
+
+        // Act
+        var result = await _service.SyncAllAsync(UserRole.Admin);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("5/5");
+    }
+
+    [Fact]
+    public async Task SyncAll_NetworkMonitor_ReturnsOffline_WhenProbeFails()
+    {
+        // 模拟 ProbeConnectionAsync 也返回 false（DNS/网络层问题）
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(false);
+        _networkMock.Setup(n => n.IsConsideredOffline).Returns(true);
+
+        var result = await _service.SyncAllAsync(UserRole.Viewer);
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("网络");
+        // 不应尝试调用 ERP adapter
+        _erpMock.Verify(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task SyncAll_Online_SyncLogUpdated_OnSuccess()
+    {
+        // Arrange
+        _networkMock.Setup(n => n.ProbeConnectionAsync()).ReturnsAsync(true);
+        _erpMock.Setup(e => e.PullMaterialsAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<Material> { new Material { Code = "MAT-001", Name = "Test" } });
+        _erpMock.Setup(e => e.PullPricesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<PriceRecord>());
+        _erpMock.Setup(e => e.PullInventoriesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<InventoryRecord>());
+        _erpMock.Setup(e => e.PullOrdersAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<OrderRecord>());
+        _erpMock.Setup(e => e.PullCapacitiesAsync(It.IsAny<DateTime?>()))
+            .ReturnsAsync(new List<CapacityRecord>());
+
+        // Act
+        var result = await _service.SyncAllAsync(UserRole.Admin);
+
+        // Assert: SyncLog 从 Running → Complete
+        result.Success.Should().BeTrue();
+        result.TotalRecords.Should().Be(1);
+        _syncLogRepoMock.Verify(r => r.WriteLog("Full", "Running", It.IsAny<string>()), Times.Once);
+        _syncLogRepoMock.Verify(r => r.UpdateLog(1, "Complete", 1, It.IsAny<string?>()), Times.Once);
+    }
 }
