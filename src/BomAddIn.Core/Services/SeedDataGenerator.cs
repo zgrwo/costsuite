@@ -23,6 +23,9 @@ namespace BomAddIn.Core.Services
         private static readonly string[] Units = { "pcs", "kg", "m", "L", "set", "roll", "pair", "box" };
         private static readonly string[] Warehouses = { "MAIN", "EAST", "WEST", "NORTH" };
         private static readonly string[] Suppliers = { "SUP-A", "SUP-B", "SUP-C" };
+
+        /// <summary>SQL 字符串值转义 — 种子数据虽为内部生成，但预防单引号导致 SQL 语法错误 (M-2)</summary>
+        private static string EscapeSql(string? value) => (value ?? "").Replace("'", "''");
         private readonly Random _rng = new Random(42); // 固定种子确保可重复
 
         public SeedDataGenerator(IDbConnectionFactory connectionFactory, IAuthorizationService authz,
@@ -134,7 +137,8 @@ namespace BomAddIn.Core.Services
                 sb.AppendLine(sb.Length == 0
                     ? $"INSERT INTO Materials (OrgId, Code, Name, Spec, Unit, Category, IsActive, CreatedAt, UpdatedAt) VALUES"
                     : ",");
-                sb.Append($"({orgId},'{code}','{name}','{spec}','{unit}','{cat}',1,datetime('now'),datetime('now'))");
+                sb.Append(
+                    $"({orgId},'{EscapeSql(code)}','{EscapeSql(name)}','{EscapeSql(spec)}','{EscapeSql(unit)}','{EscapeSql(cat)}',1,datetime('now'),datetime('now'))");
 
                 if (i % batchSize == 0 || i == count)
                 {
@@ -254,7 +258,8 @@ namespace BomAddIn.Core.Services
                         sb.AppendLine(sb.Length == 0
                             ? $"INSERT INTO BomStructures (OrgId, ParentMaterialId, ChildMaterialId, Quantity, Position, ScrapRate, BomViewType, Level, ValidFrom, VersionState, CreatedAt, UpdatedAt) VALUES"
                             : ",");
-                        sb.Append($"(1,{parentId},{childId},{qty},'{_rng.Next(1, 100)}',{scrapRate},'{bomType}',{level},'{validFrom:yyyy-MM-dd}','{versionState}',datetime('now'),datetime('now'))");
+                        sb.Append(
+                            $"(1,{parentId},{childId},{qty},'{_rng.Next(1, 100)}',{scrapRate},'{EscapeSql(bomType)}',{level},'{validFrom:yyyy-MM-dd}','{EscapeSql(versionState)}',datetime('now'),datetime('now'))");
 
                         nodeParentCount.TryGetValue(childId, out var existing);
                         nodeParentCount[childId] = existing + 1;
@@ -268,7 +273,8 @@ namespace BomAddIn.Core.Services
                             if (spareParent != parentId)
                             {
                                 sb.AppendLine(",");
-                                sb.Append($"(1,{spareParent},{childId},{Math.Round(_rng.NextDouble()*2+1,2)},'{_rng.Next(1,100)}',{scrapRate},'{bomType}',{level + 1},'{validFrom:yyyy-MM-dd}','{versionState}',datetime('now'),datetime('now'))");
+                                sb.Append(
+                                    $"(1,{spareParent},{childId},{Math.Round(_rng.NextDouble()*2+1,2)},'{_rng.Next(1,100)}',{scrapRate},'{EscapeSql(bomType)}',{level + 1},'{validFrom:yyyy-MM-dd}','{EscapeSql(versionState)}',datetime('now'),datetime('now'))");
                                 nodeParentCount.TryGetValue(childId, out var existing2);
                                 nodeParentCount[childId] = existing2 + 1;
                                 inserted++;
@@ -324,7 +330,8 @@ namespace BomAddIn.Core.Services
                     sb.AppendLine(sb.Length == 0
                         ? $"INSERT INTO Prices (OrgId, MaterialId, SupplierId, UnitPrice, Currency, DataVersion, EffectiveDate, CreatedAt) VALUES"
                         : ",");
-                    sb.Append($"(1,{matId},{supplierId},{price},'{currency}','{m + 1}','{effDate:yyyy-MM-dd}',datetime('now'))");
+                    sb.Append(
+                        $"(1,{matId},{supplierId},{price},'{EscapeSql(currency)}','{m + 1}','{effDate:yyyy-MM-dd}',datetime('now'))");
 
                     totalInserted++;
 
@@ -364,7 +371,8 @@ namespace BomAddIn.Core.Services
                     sb.AppendLine(sb.Length == 0
                         ? $"INSERT INTO Inventories (OrgId, MaterialId, WarehouseId, Quantity, DataVersion, SnapshotDate, CreatedAt) VALUES"
                         : ",");
-                    sb.Append($"(1,{matId},'{warehouse}',{qty},'{m + 1}','{snapDate:yyyy-MM-dd}',datetime('now'))");
+                    sb.Append(
+                        $"(1,{matId},'{EscapeSql(warehouse)}',{qty},'{m + 1}','{snapDate:yyyy-MM-dd}',datetime('now'))");
 
                     totalInserted++;
 

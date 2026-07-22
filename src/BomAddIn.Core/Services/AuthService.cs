@@ -6,6 +6,7 @@ using BomAddIn.Infrastructure.Models.Enums;
 using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Security;
+using BomAddIn.Infrastructure.Session;
 
 namespace BomAddIn.Core.Services
 {
@@ -15,17 +16,19 @@ namespace BomAddIn.Core.Services
         private readonly IUserRepository _userRepository;
         private readonly IUserTokenRepository _tokenRepository;
         private readonly IPasswordHasher _passwordHasher;
+        private readonly ICurrentUserContext _currentUserContext;
 
         private const int MaxFailedAttempts = 5;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
         private static readonly TimeSpan TokenLifetime = TimeSpan.FromHours(8);
 
         public AuthService(IUserRepository userRepository, IUserTokenRepository tokenRepository,
-            IPasswordHasher passwordHasher)
+            IPasswordHasher passwordHasher, ICurrentUserContext currentUserContext)
         {
             _userRepository = userRepository;
             _tokenRepository = tokenRepository;
             _passwordHasher = passwordHasher;
+            _currentUserContext = currentUserContext;
         }
 
         public AuthResult Authenticate(string username, string password)
@@ -86,6 +89,9 @@ namespace BomAddIn.Core.Services
             user.LastLoginAt = DateTime.UtcNow;
             _userRepository.Update(user);
 
+            // 设置当前用户上下文，供 UI 层同步/导入/快照等操作获取角色
+            _currentUserContext.SetUser(user);
+
             // 生成简单 Token（Sprint 2 升级为 JWT）
             var token = GenerateToken(user);
 
@@ -100,6 +106,7 @@ namespace BomAddIn.Core.Services
         public void Logout(long userId)
         {
             _tokenRepository.RevokeAllForUser(userId);
+            _currentUserContext.Clear();
         }
 
         public User? GetCurrentUser(long userId)

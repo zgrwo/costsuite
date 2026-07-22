@@ -8,6 +8,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using BomAddIn.Core.Services;
 using BomAddIn.Infrastructure.Models.Enums;
+using BomAddIn.Infrastructure.Session;
 using BomAddIn.UDF;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -78,12 +79,8 @@ public partial class BomTaskPane : UserControl
             {
                 using var scope = Container.BeginScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
-                var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
-                // V1.0: 无会话管理，无法获取当前登录用户。回退策略：尝试查找 admin 用户，
-                // 若存在则使用其角色，否则降级为 Viewer（同步按钮仅管理员可见，此为防御性降级）。
-                // V2.0: 改用 ICurrentUserContext 从登录 Token 解析当前用户。
-                var currentUser = authService.GetCurrentUser(1); // admin 种子用户 ID
-                var callerRole = currentUser?.Role ?? UserRole.Viewer; // 无用户时默认 Viewer（原则最小权限）
+                var userContext = scope.ServiceProvider.GetRequiredService<ICurrentUserContext>();
+                var callerRole = userContext.CurrentRole;
                 return await syncService.SyncAllAsync(callerRole);
             });
 
@@ -184,7 +181,8 @@ public partial class BomTaskPane : UserControl
             {
                 using var scope = Container.BeginScope();
                 var svc = scope.ServiceProvider.GetRequiredService<ISnapshotService>();
-                return svc.CreateSnapshot(UserRole.Admin, "Manual",
+                var userContext = scope.ServiceProvider.GetRequiredService<ICurrentUserContext>();
+                return svc.CreateSnapshot(userContext.CurrentRole, "Manual",
                     $"UI snapshot at {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             });
 

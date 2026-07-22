@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows.Forms;
 using BomAddIn.Core.Services;
 using BomAddIn.Infrastructure.Models.Enums;
+using BomAddIn.Infrastructure.Session;
 using BomAddIn.Dashboard;
 using BomAddIn.UI.Import;
 using BomAddIn.UI.TaskPane;
@@ -86,9 +87,8 @@ namespace BomAddIn.Ribbon
             {
                 using var scope = Services.CreateScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
-                var authService = scope.ServiceProvider.GetRequiredService<IAuthService>();
-                var currentUser = authService.GetCurrentUser(0);
-                var callerRole = currentUser?.Role ?? UserRole.Viewer;
+                var userContext = scope.ServiceProvider.GetRequiredService<ICurrentUserContext>();
+                var callerRole = userContext.CurrentRole;
                 var result = await syncService.SyncAllAsync(callerRole);
 
                 var message = result.Success
@@ -185,13 +185,12 @@ namespace BomAddIn.Ribbon
 
                 if (confirmResult != DialogResult.OK) return;
 
-                // 4. 获取当前用户角色（遵循 OnSyncData 模式，从登录上下文获取实际角色）
+                // 4. 获取当前用户角色（从登录上下文获取实际角色）
                 UserRole callerRole;
                 using (var authScope = Services.CreateScope())
                 {
-                    var authService = authScope.ServiceProvider.GetRequiredService<IAuthService>();
-                    var currentUser = authService.GetCurrentUser(0);
-                    callerRole = currentUser?.Role ?? UserRole.Viewer;
+                    var userContext = authScope.ServiceProvider.GetRequiredService<ICurrentUserContext>();
+                    callerRole = userContext.CurrentRole;
                 }
 
                 // 5. 执行导入（后台执行，避免冻结 Excel UI）

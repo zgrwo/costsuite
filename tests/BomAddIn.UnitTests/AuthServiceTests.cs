@@ -4,6 +4,7 @@ using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Models.Enums;
 using BomAddIn.Infrastructure.Security;
+using BomAddIn.Infrastructure.Session;
 using FluentAssertions;
 using Moq;
 using Xunit;
@@ -15,11 +16,13 @@ public class AuthServiceTests
     private readonly Mock<IUserRepository> _userRepoMock = new();
     private readonly Mock<IUserTokenRepository> _tokenRepoMock = new();
     private readonly Mock<IPasswordHasher> _hasherMock = new();
+    private readonly Mock<ICurrentUserContext> _userContextMock = new();
     private readonly AuthService _authService;
 
     public AuthServiceTests()
     {
-        _authService = new AuthService(_userRepoMock.Object, _tokenRepoMock.Object, _hasherMock.Object);
+        _authService = new AuthService(_userRepoMock.Object, _tokenRepoMock.Object,
+            _hasherMock.Object, _userContextMock.Object);
     }
 
     private static User CreateUser(string username = "testuser", string role = "Admin")

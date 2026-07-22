@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using BomAddIn.Core.Models;
+using BomAddIn.Infrastructure.Config;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Logging;
 
@@ -11,6 +13,37 @@ namespace BomAddIn.Core.Services
     /// <remarks>纯函数，线程安全。V1.0 内存计算，百万级数据时考虑 DuckDB join。</remarks>
     public class VarianceCalculator : IVarianceCalculator
     {
+        private readonly double _quantityTolerance;
+        private readonly decimal _priceTolerance;
+        private readonly decimal _priceToleranceFloor;
+
+        /// <summary>
+        /// 默认相对容差 0.0001 (0.01%)，可通过 AppConfig 覆盖:
+        ///   Variance:QuantityTolerance, Variance:PriceTolerance, Variance:PriceToleranceFloor
+        /// </summary>
+        public VarianceCalculator() : this(null) { }
+
+        public VarianceCalculator(IConfigProvider? config)
+        {
+            _quantityTolerance = ParseDouble(config?.Get("Variance:QuantityTolerance"), 0.0001);
+            _priceTolerance = ParseDecimal(config?.Get("Variance:PriceTolerance"), 0.0001m);
+            _priceToleranceFloor = ParseDecimal(config?.Get("Variance:PriceToleranceFloor"), 0.001m);
+        }
+
+        private static double ParseDouble(string? value, double defaultValue)
+        {
+            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result))
+                return result;
+            return defaultValue;
+        }
+
+        private static decimal ParseDecimal(string? value, decimal defaultValue)
+        {
+            if (decimal.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result))
+                return result;
+            return defaultValue;
+        }
+
         public List<VarianceResult> CompareBomVersions(
             List<BomExpandedNode> versionA,
             List<BomExpandedNode> versionB)
@@ -77,13 +110,13 @@ namespace BomAddIn.Core.Services
                         var nodeA = listA[i];
                         var nodeB = listB[i];
 
-                        if (Math.Abs(nodeA.Quantity - nodeB.Quantity) > 0.0001 * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity))
+                        if (Math.Abs(nodeA.Quantity - nodeB.Quantity) > _quantityTolerance * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity))
                             || nodeA.Level != nodeB.Level)
                         {
                             var oldQty = nodeA.Quantity;
                             var newQty = nodeB.Quantity;
                             var levelChanged = nodeA.Level != nodeB.Level;
-                            var qtyChanged = Math.Abs(nodeA.Quantity - nodeB.Quantity) > 0.0001 * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity));
+                            var qtyChanged = Math.Abs(nodeA.Quantity - nodeB.Quantity) > _quantityTolerance * Math.Max(1.0, Math.Max(nodeA.Quantity, nodeB.Quantity));
                             var changePct = oldQty > 0 ? (newQty - oldQty) / oldQty * 100 : (newQty != 0 ? double.PositiveInfinity : 0);
 
                             string description;
@@ -138,7 +171,7 @@ namespace BomAddIn.Core.Services
 
             // H-15: 使用相对阈值替代绝对阈值
             // 当差异 < priceA * 0.01%（最小 0.001m）时视为无变化
-            var relativeThreshold = Math.Max(0.001m, priceA * 0.0001m);
+            var relativeThreshold = Math.Max(_priceToleranceFloor, priceA * _priceTolerance);
             if (Math.Abs(priceA - priceB) < relativeThreshold)
                 return results;
 

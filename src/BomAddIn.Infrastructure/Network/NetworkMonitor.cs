@@ -23,7 +23,13 @@ namespace BomAddIn.Infrastructure.Network
             _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
             _probeUrl = configProvider.Get("ErpApi:HealthCheckUrl");
             if (string.IsNullOrWhiteSpace(_probeUrl))
+            {
                 _probeUrl = "https://erp.example.com/api/health";
+                Logging.AppLogger.Warn(
+                    "ERP 健康检查 URL 未配置 (ErpApi:HealthCheckUrl)，使用默认值 'https://erp.example.com/api/health'。" +
+                    "网络探测将始终失败。请在 AppConfig 表中设置 ErpApi:HealthCheckUrl。",
+                    typeof(NetworkMonitor));
+            }
         }
 
         public bool IsNetworkAvailable() =>

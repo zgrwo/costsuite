@@ -12,6 +12,7 @@ using BomAddIn.Infrastructure.Config;
 using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Infrastructure.Network;
 using BomAddIn.Infrastructure.Security;
+using BomAddIn.Infrastructure.Session;
 using Dapper;
 using Microsoft.Extensions.DependencyInjection;
 using System;
@@ -147,6 +148,9 @@ namespace BomAddIn
 
             // Network
             services.AddSingleton<INetworkMonitor, NetworkMonitor>();
+
+            // Session — 当前用户上下文 (H-1/H-2 fix: 消除硬编码 userId)
+            services.AddSingleton<ICurrentUserContext, CurrentUserContext>();
         }
 
         private static void RegisterBridge(IServiceCollection services)

@@ -13,6 +13,7 @@ using BomAddIn.Infrastructure.Models.Enums;
 using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
+using BomAddIn.Infrastructure.Session;
 using BomAddIn.UDF;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -255,9 +256,8 @@ namespace BomAddIn.Dashboard
                 {
                     using var scope = _services.CreateScope();
                     var sp = scope.ServiceProvider;
-                    var authService = sp.GetRequiredService<IAuthService>();
-                    var currentUser = authService.GetCurrentUser(0);
-                    var callerRole = currentUser?.Role ?? UserRole.Viewer;
+                    var userContext = sp.GetRequiredService<ICurrentUserContext>();
+                    var callerRole = userContext.CurrentRole;
                     var syncService = sp.GetRequiredService<ISyncService>();
                     return await syncService.SyncAllAsync(callerRole);
                 });
