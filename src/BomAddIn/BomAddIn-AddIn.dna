@@ -8,8 +8,7 @@
   <Reference Path="NLog.dll" Pack="true" />
   <Reference Path="BCrypt.Net-Next.dll" Pack="true" />
   <Reference Path="System.Security.Cryptography.ProtectedData.dll" Pack="true" />
-  <Reference Path="dbup-core.dll" Pack="true" />
-  <Reference Path="dbup-sqlite.dll" Pack="true" />
+
   <Reference Path="Microsoft.Extensions.DependencyInjection.dll" Pack="true" />
   <Reference Path="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Pack="true" />
   <Reference Path="System.Memory.dll" Pack="true" />

@@ -1,12 +1,20 @@
 using System;
+using System.Data;
+using System.Data.SQLite;
+using System.IO;
+using System.Linq;
 using System.Reflection;
 using BomAddIn.Data.Connection;
-using DbUp;
-using DbUp.Engine;
 
 namespace BomAddIn.Data.Migration
 {
-    /// <summary>DbUp 数据库迁移器 — 按 skill excel-dna-di-startup §4</summary>
+    /// <summary>
+    /// SQLite 数据库迁移器 — 使用 System.Data.SQLite 直接执行内嵌迁移脚本，
+    /// 统一 SQLite provider 依赖，避免 Microsoft.Data.Sqlite 原生库冲突。
+    ///
+    /// 迁移脚本命名: BomAddIn.Data.Migrations.S###_Description.sql
+    /// 按脚本名排序执行，SchemaVersions 表追踪已执行脚本（幂等）。
+    /// </summary>
     public class DatabaseMigrator
     {
         private readonly IDbConnectionFactory _connectionFactory;
@@ -18,29 +26,87 @@ namespace BomAddIn.Data.Migration
 
         public void RunPendingMigrations()
         {
-            // DbUp 使用 Microsoft.Data.Sqlite，移除 System.Data.SQLite 专有参数。
-            // 正则移除后可能保留尾部 ";"，TrimEnd 确保所有 SQLite provider 兼容。
-            var dbUpConnStr = System.Text.RegularExpressions.Regex.Replace(
-                _connectionFactory.ConnectionString,
-                @";\s*(Version|Journal Mode|Foreign Keys|Busy Timeout|BusyTimeout)=[^;]*",
-                "").TrimEnd(';');
+            using var conn = _connectionFactory.CreateConnection();
 
-            var upgrader = DeployChanges.To
-                .SQLiteDatabase(dbUpConnStr)
-                .WithScriptsEmbeddedInAssembly(
-                    Assembly.GetExecutingAssembly(),
-                    s => s.StartsWith("BomAddIn.Data.Migrations.S"))
-                .WithTransactionPerScript()
-                .LogToConsole()
-                .Build();
+            // 确保 SchemaVersions 日志表存在
+            EnsureSchemaVersionsTable(conn);
 
-            var result = upgrader.PerformUpgrade();
+            // 查找内嵌迁移脚本（按名称排序确保顺序一致）
+            var assembly = Assembly.GetExecutingAssembly();
+            var scriptNames = assembly.GetManifestResourceNames()
+                .Where(n => n.StartsWith("BomAddIn.Data.Migrations.S"))
+                .OrderBy(n => n)
+                .ToList();
 
-            if (!result.Successful)
+            foreach (var resourceName in scriptNames)
             {
-                throw new InvalidOperationException(
-                    "数据库迁移失败。请检查 BomAddIn.Diagnostic.exe 了解详情。", result.Error);
+                // 提取短名（如 S001_InitialSchema.sql）
+                var shortName = resourceName.Replace("BomAddIn.Data.Migrations.", "");
+
+                // 幂等检查
+                if (IsScriptApplied(conn, shortName))
+                    continue;
+
+                // 读取脚本 SQL
+                string sql;
+                using (var stream = assembly.GetManifestResourceStream(resourceName))
+                using (var reader = new StreamReader(stream!))
+                {
+                    sql = reader.ReadToEnd();
+                }
+
+                // 在一个事务中执行脚本 + 记录日志
+                using (var tx = conn.BeginTransaction())
+                {
+                    try
+                    {
+                        using (var cmd = conn.CreateCommand())
+                        {
+                            cmd.CommandText = sql;
+                            cmd.ExecuteNonQuery();
+                        }
+
+                        RecordScriptApplied(conn, shortName);
+
+                        tx.Commit();
+                    }
+                    catch (Exception ex)
+                    {
+                        try { tx.Rollback(); } catch { /* 尽力回滚 */ }
+
+                        throw new InvalidOperationException(
+                            $"数据库迁移脚本 {shortName} 执行失败。", ex);
+                    }
+                }
             }
+        }
+
+        private static void EnsureSchemaVersionsTable(IDbConnection conn)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                CREATE TABLE IF NOT EXISTS SchemaVersions (
+                    Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ScriptName TEXT NOT NULL UNIQUE,
+                    Applied DATETIME NOT NULL DEFAULT (datetime('now'))
+                )";
+            cmd.ExecuteNonQuery();
+        }
+
+        private static bool IsScriptApplied(IDbConnection conn, string scriptName)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "SELECT COUNT(*) FROM SchemaVersions WHERE ScriptName = @name";
+            cmd.Parameters.Add(new SQLiteParameter("@name", scriptName));
+            return (long)cmd.ExecuteScalar()! > 0;
+        }
+
+        private static void RecordScriptApplied(IDbConnection conn, string scriptName)
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = "INSERT INTO SchemaVersions (ScriptName) VALUES (@name)";
+            cmd.Parameters.Add(new SQLiteParameter("@name", scriptName));
+            cmd.ExecuteNonQuery();
         }
     }
 }

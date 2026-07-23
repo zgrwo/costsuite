@@ -49,9 +49,6 @@ namespace BomAddIn.Data.Connection
 
         public string ConnectionString => _connectionString;
 
-        /// <summary>DbUp 兼容连接字符串 — 仅 Data Source=</summary>
-        public string DbUpConnectionString => $"Data Source={_dbPath}";
-
         /// <summary>数据库文件完整路径</summary>
         public string DatabaseFilePath => _dbPath;
 

@@ -67,7 +67,7 @@ public class MigrationTests : IDisposable
         // 第一次迁移
         migrator.RunPendingMigrations();
 
-        // 第二次迁移不应抛异常（DbUp 幂等性）
+        // 第二次迁移不应抛异常（幂等性）
         var act = () => migrator.RunPendingMigrations();
         act.Should().NotThrow();
     }
@@ -81,7 +81,7 @@ public class MigrationTests : IDisposable
         using var conn = new SQLiteConnection($"Data Source={_dbPath}");
         conn.Open();
 
-        // DbUp 创建 SchemaVersions 表追踪已应用脚本
+        // SchemaVersions 表追踪已应用脚本
         var hasVersionTable = conn.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='SchemaVersions'");
         hasVersionTable.Should().Be(1);
