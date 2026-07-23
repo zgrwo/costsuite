@@ -34,20 +34,36 @@ jobs:
     - name: Build
       run: dotnet build BomAddIn.sln --configuration ${{ env.CONFIGURATION }} --no-restore
 
-    - name: Tests
-      strategy:
-        matrix:
-          test:
-            - { project: BomAddIn.UnitTests,         log: unit-tests,          continue: false, coverage: true  }
-            - { project: BomAddIn.IntegrationTests,    log: integration-tests,   continue: false, coverage: true  }
-            - { project: BomAddIn.ThreadingTests,      log: threading-tests,     continue: true,  coverage: false }
-            - { project: BomAddIn.PerformanceTests,    log: perf-tests,          continue: true,  coverage: false }
-      continue-on-error: ${{ matrix.test.continue }}
+    - name: Unit Tests
       run: >
-        dotnet test tests/${{ matrix.test.project }}/${{ matrix.test.project }}.csproj
+        dotnet test tests/BomAddIn.UnitTests/BomAddIn.UnitTests.csproj
         --configuration ${{ env.CONFIGURATION }} --no-build
-        --logger "trx;LogFileName=${{ matrix.test.log }}.trx"
-        ${{ matrix.test.coverage && '--collect:"XPlat Code Coverage" --results-directory coverage/${{ matrix.test.project }}' || '' }}
+        --logger "trx;LogFileName=unit-tests.trx"
+        --collect:"XPlat Code Coverage" --results-directory coverage/BomAddIn.UnitTests
+        --verbosity normal
+
+    - name: Integration Tests
+      run: >
+        dotnet test tests/BomAddIn.IntegrationTests/BomAddIn.IntegrationTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=integration-tests.trx"
+        --collect:"XPlat Code Coverage" --results-directory coverage/BomAddIn.IntegrationTests
+        --verbosity normal
+
+    - name: Threading Tests
+      continue-on-error: true
+      run: >
+        dotnet test tests/BomAddIn.ThreadingTests/BomAddIn.ThreadingTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=threading-tests.trx"
+        --verbosity normal
+
+    - name: Performance Tests
+      continue-on-error: true
+      run: >
+        dotnet test tests/BomAddIn.PerformanceTests/BomAddIn.PerformanceTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=perf-tests.trx"
         --verbosity normal
 
     - name: Generate coverage report
