@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>BomAddIn</AssemblyName>
+    <RootNamespace>BomAddIn</RootNamespace>
+    <LangVersion>11</LangVersion>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <!-- Excel-DNA: 只注册 [ExcelFunction] 显式标记的 UDF，防止第三方库的函数被误注册 -->
+    <ExcelAddInExplicitExports>true</ExcelAddInExplicitExports>
+    <!-- Excel-DNA: 外部库不扫描 COM 注册 -->
+    <ExcelAddInExplicitRegistration>true</ExcelAddInExplicitRegistration>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="ExcelDna.AddIn" Version="1.8.0" />
+    <PackageReference Include="ExcelDna.Integration" Version="1.8.0" />
+    <PackageReference Include="ExcelDna.Interop" Version="15.0.0" />
+    <PackageReference Include="ExcelDnaPack" Version="1.5.1" />
+    <PackageReference Include="ExcelDataReader" Version="3.6.0" />
+    <PackageReference Include="ExcelDataReader.DataSet" Version="3.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BomAddIn.Core\BomAddIn.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="PresentationFramework" />
+    <Reference Include="PresentationCore" />
+    <Reference Include="WindowsBase" />
+  </ItemGroup>
+
+  <!-- duckdb.dll: DuckDB 原生库（C++ 编译），由 Excel-DNA .dna 文件中的 &lt;Reference Path="duckdb.dll" Pack="false" /&gt; 管理加载。
+       作为 Content 复制到输出目录以支持 Excel-DNA 的外部引用机制。Pack="false" 防止其被打包进 .xll 文件中。 -->
+  <ItemGroup>
+    <Content Include="duckdb.dll" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

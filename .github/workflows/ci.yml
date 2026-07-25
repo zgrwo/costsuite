@@ -1,0 +1,167 @@
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: 8.0.x
+  CONFIGURATION: Release
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore
+      run: dotnet restore BomAddIn.sln
+
+    - name: Build
+      run: dotnet build BomAddIn.sln --configuration ${{ env.CONFIGURATION }} --no-restore
+
+    - name: Unit Tests
+      run: >
+        dotnet test tests/BomAddIn.UnitTests/BomAddIn.UnitTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=unit-tests.trx"
+        --collect:"XPlat Code Coverage" --results-directory coverage/BomAddIn.UnitTests
+        --verbosity normal
+
+    - name: Integration Tests
+      run: >
+        dotnet test tests/BomAddIn.IntegrationTests/BomAddIn.IntegrationTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=integration-tests.trx"
+        --collect:"XPlat Code Coverage" --results-directory coverage/BomAddIn.IntegrationTests
+        --verbosity normal
+
+    - name: Threading Tests
+      continue-on-error: true
+      run: >
+        dotnet test tests/BomAddIn.ThreadingTests/BomAddIn.ThreadingTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=threading-tests.trx"
+        --verbosity normal
+
+    - name: Performance Tests
+      continue-on-error: true
+      run: >
+        dotnet test tests/BomAddIn.PerformanceTests/BomAddIn.PerformanceTests.csproj
+        --configuration ${{ env.CONFIGURATION }} --no-build
+        --logger "trx;LogFileName=perf-tests.trx"
+        --verbosity normal
+
+    - name: Generate coverage report
+      if: always()
+      shell: pwsh
+      run: |
+        dotnet tool install --global dotnet-reportgenerator-globaltool --version 5.3.8
+        $coverageDirs = @("coverage/BomAddIn.UnitTests", "coverage/BomAddIn.IntegrationTests")
+        $existing = @($coverageDirs | Where-Object { Test-Path $_ })
+        if ($existing.Count -gt 0) {
+          reportgenerator -reports:"coverage/**/coverage.cobertura.xml" -targetdir:"coverage/report" -reporttypes:HtmlSummary
+          Write-Host "Coverage report generated at coverage/report/"
+        } else {
+          Write-Host "No coverage data found, skipping report generation."
+        }
+
+    - name: Check coverage threshold (80%)
+      if: always()
+      shell: pwsh
+      run: |
+        $summaryFile = "coverage/report/Summary.txt"
+        if (-not (Test-Path $summaryFile)) {
+          Write-Host "No coverage summary found, skipping threshold check."
+          exit 0
+        }
+        $summary = Get-Content $summaryFile -Raw
+        if ($summary -match 'Line coverage[:\s]+([\d.]+)%') {
+          $lineCov = [double]$Matches[1]
+          Write-Host "Line coverage: $lineCov%"
+          if ($lineCov -lt 80.0) {
+            Write-Error "Coverage $lineCov% is below 80% threshold!"
+            exit 1
+          }
+          Write-Host "Coverage threshold met: $lineCov% >= 80%"
+        } else {
+          Write-Host "Could not parse coverage percentage from summary."
+        }
+
+    # TODO: SonarQube — add SonarCloud/SonarQube scan step (plan §5.1: "SonarQube 无 Critical")
+    # TODO: Security  — add CodeQL analysis workflow (.github/workflows/codeql.yml)
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: "**/*.trx"
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output
+        path: |
+          src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472/publish/**/*.xll
+          src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472/**/*.dll
+          src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472/**/*.dna
+
+  package:
+    name: Package
+    runs-on: windows-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-output
+        path: build-output
+
+    - name: Package ZIP
+      shell: pwsh
+      run: |
+        $distDir = "build/dist"
+        New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+
+        $version = "1.1.0-ci.${{ github.run_number }}"
+        $zipName = "BomAddIn-v$version-${{ env.CONFIGURATION }}.zip"
+        $zipPath = Join-Path $distDir $zipName
+
+        # ExcelDnaPack 产物 (.xll) 和依赖 DLL 已在 build-and-test 作业中编译
+        $files = Get-ChildItem -Path build-output -Recurse -File |
+          Where-Object { $_.Extension -match '\.(xll|dll|dna|config)$' }
+
+        if ($files.Count -eq 0) {
+          Write-Error "No build artifacts found. Check build-output directory."
+          exit 1
+        }
+
+        Compress-Archive -Path $files.FullName -DestinationPath $zipPath -Force
+        Write-Host "Distribution ZIP: $zipPath"
+        Write-Host "Files: $($files.Count)"
+
+    - name: Upload distribution
+      uses: actions/upload-artifact@v4
+      with:
+        name: distribution
+        path: build/dist/*.zip

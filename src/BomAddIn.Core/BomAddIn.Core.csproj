@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <AssemblyName>BomAddIn.Core</AssemblyName>
+    <RootNamespace>BomAddIn.Core</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <!-- Core 零外部 NuGet 依赖，仅引用下层 Data 程序集 -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\BomAddIn.Data\BomAddIn.Data.csproj" />
+  </ItemGroup>
+</Project>

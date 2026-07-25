@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>BomAddIn.Diagnostic</AssemblyName>
+    <RootNamespace>BomAddIn.Diagnostic</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BomAddIn.Data\BomAddIn.Data.csproj" />
+    <ProjectReference Include="..\..\src\BomAddIn.Core\BomAddIn.Core.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,234 @@
+using BomAddIn.Bridge;
+using BomAddIn.Core.Events;
+using BomAddIn.Core.Services;
+using BomAddIn.Data.Analysis;
+using BomAddIn.Data.Caching;
+using BomAddIn.Data.Connection;
+using BomAddIn.Data.Migration;
+using BomAddIn.Data.Repositories;
+using BomAddIn.Data.Sync;
+using BomAddIn.EventBus;
+using BomAddIn.Infrastructure.Config;
+using BomAddIn.Infrastructure.Logging;
+using BomAddIn.Infrastructure.Network;
+using BomAddIn.Infrastructure.Security;
+using BomAddIn.Infrastructure.Session;
+using Dapper;
+using Microsoft.Extensions.DependencyInjection;
+using System;
+
+namespace BomAddIn
+{
+    /// <summary>
+    /// DI 容器配置。按层分组的注册方法。
+    /// 参见 spec §2.3、skill excel-dna-di-startup §2。
+    /// </summary>
+    public static class ServiceConfigurator
+    {
+        public static ServiceProvider Configure()
+        {
+            // C-18 fix: 注册 Dapper 枚举类型处理器，确保 TEXT 列 ↔ enum 正确映射
+            // SQLite 中 enum 值存储为 TEXT ("Admin", "Draft")，需要显式处理
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.UserRole>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.VersionState>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.AuditAction>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.SnapshotType>());
+            Dapper.SqlMapper.AddTypeHandler(new EnumStringTypeHandler<Infrastructure.Models.Enums.SyncStatus>());
+
+            var services = new ServiceCollection();
+
+            RegisterInfrastructure(services);
+            RegisterBridge(services);
+            RegisterData(services);
+            RegisterCore(services);
+            // C-3: 注册事件总线 (Singleton，进程内 pub-sub)
+            RegisterEventBus(services);
+
+            var provider = services.BuildServiceProvider();
+
+            // 初始化 EnvironmentManager — 从 AppConfig 表读取当前环境
+            InitializeEnvironment(provider);
+
+            // 初始化 AppConfigProvider — 从数据库加载配置覆盖默认值
+            InitializeConfigProvider(provider);
+
+            return provider;
+        }
+
+        private static void RegisterEventBus(IServiceCollection services)
+        {
+            services.AddSingleton<IEventBus, ExcelEventBus>();
+        }
+
+        private static void InitializeEnvironment(ServiceProvider provider)
+        {
+            try
+            {
+                // 探测项目 database/ 目录：从 XLL 路径向上查找
+                try
+                {
+                    var xllDir = System.IO.Path.GetDirectoryName(ExcelDna.Integration.ExcelDnaUtil.XllPath);
+                    if (!string.IsNullOrWhiteSpace(xllDir))
+                    {
+                        var dir = xllDir;
+                        for (int i = 0; i < 5 && dir != null; i++)
+                        {
+                            var candidate = System.IO.Path.Combine(dir, "database");
+                            if (System.IO.Directory.Exists(candidate))
+                            {
+                                SqliteConnectionFactory.ProjectDbRoot = candidate;
+                                AppLogger.Info($"数据库根目录: {candidate}", typeof(ServiceConfigurator));
+                                break;
+                            }
+                            dir = System.IO.Path.GetDirectoryName(dir);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AppLogger.Warn($"项目 database/ 目录探测失败，回退到 %LocalAppData%。原因: {ex.Message}", typeof(ServiceConfigurator));
+                }
+
+                var envManager = provider.GetRequiredService<EnvironmentManager>();
+                // 使用 PROD 连接字符串先读取环境配置
+                using var conn = new System.Data.SQLite.SQLiteConnection(
+                    $"Data Source={SqliteConnectionFactory.ProdDatabasePath}");
+                conn.Open();
+
+                // 尝试查 AppConfig 表获取当前环境
+                try
+                {
+                    var env = conn.QueryFirstOrDefault<string>(
+                        "SELECT Value FROM AppConfig WHERE Key = 'Environment:Current'");
+                    if (!string.IsNullOrWhiteSpace(env))
+                        envManager.LoadFromDb($"Data Source={SqliteConnectionFactory.ProdDatabasePath}");
+                }
+                catch (Exception ex)
+            {
+                // 表不存在时使用默认 PROD
+                AppLogger.Warn($"InitializeEnvironment: 环境配置读取失败，使用默认 PROD。原因: {ex.Message}", typeof(ServiceConfigurator));
+            }
+        }
+        catch (Exception ex)
+        {
+            // 初始化失败不阻止启动，但记录日志以便诊断
+            AppLogger.Warn($"InitializeEnvironment: 环境初始化失败。原因: {ex.Message}", typeof(ServiceConfigurator));
+        }
+        }
+
+        private static void InitializeConfigProvider(ServiceProvider provider)
+        {
+            try
+            {
+                var configProvider = (AppConfigProvider)provider.GetRequiredService<IConfigProvider>();
+                var dbFactory = provider.GetRequiredService<IDbConnectionFactory>();
+                configProvider.LoadFromDb(dbFactory.ConnectionString);
+            }
+            catch (Exception ex)
+            {
+                // 数据库不可用时使用硬编码默认值，不阻止启动
+                AppLogger.Warn($"InitializeConfigProvider: 数据库配置加载失败，使用默认值。原因: {ex.Message}", typeof(ServiceConfigurator));
+            }
+        }
+
+        private static void RegisterInfrastructure(IServiceCollection services)
+        {
+            // Security
+            services.AddSingleton<IPasswordHasher, BCryptPasswordHasher>();
+
+            // Config (Singleton — 启动时从 AppConfig 表加载覆盖值)
+            services.AddSingleton<IConfigProvider, AppConfigProvider>();
+
+            // Environment (Singleton — DEV/PROD 切换)
+            services.AddSingleton<EnvironmentManager>();
+
+            // Network
+            services.AddSingleton<INetworkMonitor, NetworkMonitor>();
+
+            // Session — 当前用户上下文 (H-1/H-2 fix: 消除硬编码 userId)
+            services.AddSingleton<ICurrentUserContext, CurrentUserContext>();
+        }
+
+        private static void RegisterBridge(IServiceCollection services)
+        {
+            services.AddSingleton<IExcelThreadDispatcher, ExcelThreadDispatcher>();
+            services.AddSingleton<IVersionAdapter, VersionAdapter>();
+        }
+
+        private static void RegisterData(IServiceCollection services)
+        {
+            // Connection (Singleton — DEV/PROD 环境隔离)
+            services.AddSingleton<IDbConnectionFactory>(sp =>
+                new SqliteConnectionFactory(sp.GetRequiredService<EnvironmentManager>()));
+
+            // Migration (Singleton — run once at startup)
+            services.AddSingleton<DatabaseMigrator>();
+
+            // Caching (Singleton — process-wide L1 cache)
+            services.AddSingleton<ICacheProvider, MemoryCacheProvider>();
+
+            // Repositories (Scoped per operation)
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<IMaterialRepository, MaterialRepository>();
+            services.AddScoped<ISupplierRepository, SupplierRepository>();
+            services.AddScoped<IAppConfigRepository, AppConfigRepository>();
+            services.AddScoped<IUserTokenRepository, UserTokenRepository>();
+            services.AddScoped<IBomNodeRepository, BomNodeRepository>();
+            services.AddScoped<IPriceRecordRepository, PriceRecordRepository>();
+            services.AddScoped<IInventoryRecordRepository, InventoryRecordRepository>();
+            services.AddScoped<IOrderRecordRepository, OrderRecordRepository>();
+            services.AddScoped<ICapacityRecordRepository, CapacityRecordRepository>();
+            services.AddScoped<IBomVersionRepository, BomVersionRepository>();
+            services.AddScoped<IBomClosureRepository, BomClosureRepository>();
+
+            // Analysis (Singleton — DuckDB 内存引擎，进程级唯一)
+            services.AddSingleton<IBomAnalysisProvider, BomAnalysisProvider>();
+
+            // Audit (Scoped — 审计日志写入)
+            services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+
+            // SyncLog (Scoped — 同步日志)
+            services.AddScoped<ISyncLogRepository, SyncLogRepository>();
+
+            // Snapshot (Scoped — 数据快照)
+            services.AddScoped<IDataSnapshotRepository, DataSnapshotRepository>();
+
+            // Sync (Singleton — ERP 适配器)
+            services.AddSingleton<IErpAdapter, SimulatedErpAdapter>();
+        }
+
+        private static void RegisterCore(IServiceCollection services)
+        {
+            // Services (Scoped per operation)
+            services.AddScoped<IAuthService, AuthService>();
+            services.AddScoped<IBomService, BomService>();
+            services.AddScoped<ISyncService, SyncService>();
+            services.AddScoped<IVarianceService, VarianceService>();
+
+            // Authorization (Singleton — stateless, hot path)
+            services.AddSingleton<IAuthorizationService, AuthorizationService>();
+
+            // Config (Singleton — backed by cache)
+            services.AddSingleton<IConfigService, ConfigService>();
+
+            // Variance Engine (Singleton — stateless pure calculation)
+            services.AddSingleton<IVarianceCalculator, VarianceCalculator>();
+            services.AddSingleton<IAlertEvaluator, AlertEvaluator>();
+
+            // Excel Import (Singleton — stateless)
+            services.AddSingleton<IBomExcelImporter, BomExcelImporter>();
+
+            // Audit (Scoped — 业务审计日志)
+            services.AddScoped<IAuditService, AuditService>();
+
+            // Approval (Scoped — BOM 审批工作流)
+            services.AddScoped<IApprovalService, ApprovalService>();
+
+            // Snapshot (Scoped — 数据快照)
+            services.AddScoped<ISnapshotService, SnapshotService>();
+
+            // Seed Data (Singleton — 种子数据生成器)
+            services.AddSingleton<ISeedDataGenerator, SeedDataGenerator>();
+        }
+    }
+}

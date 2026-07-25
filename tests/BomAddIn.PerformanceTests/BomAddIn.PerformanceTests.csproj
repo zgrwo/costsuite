@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>BomAddIn.PerformanceTests</AssemblyName>
+    <RootNamespace>BomAddIn.PerformanceTests</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.12" />
+    <PackageReference Include="Moq" Version="4.20.72" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BomAddIn.Core\BomAddIn.Core.csproj" />
+    <ProjectReference Include="..\..\src\BomAddIn.Data\BomAddIn.Data.csproj" />
+    <ProjectReference Include="..\..\src\BomAddIn.Infrastructure\BomAddIn.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!-- DuckDB 原生库: 从 BomAddIn 项目复制到输出目录 -->
+  <Target Name="CopyDuckDB" AfterTargets="Build">
+    <Copy SourceFiles="..\..\src\BomAddIn\duckdb.dll"
+          DestinationFolder="$(OutputPath)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('..\..\src\BomAddIn\duckdb.dll')" />
+  </Target>
+</Project>
