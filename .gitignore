@@ -1,0 +1,15 @@
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.xll
+*.deps.json
+*.runtimeconfig.json
+TestResults/
+__pycache__/
+.claude/reviews/
+logs/
+*.db
+*.db-journal
+*.db-wal

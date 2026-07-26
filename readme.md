@@ -1,132 +1,174 @@
-﻿# BomAddIn (costsuite)
+# BomAddIn (costsuite)
 
-> 浼佷笟绾?BOM 绠＄悊涓庢垚鏈樊寮傚垎鏋?Excel 鎻掍欢锛欵xcel-DNA + C#锛岀洰鏍?10 涓囩骇鐗╂枡 / 100 涓囩骇鑺傜偣锛岀绾夸紭鍏堟灦鏋勩€?
+> 企业级 BOM 管理与成本差异分析 Excel 插件：Excel-DNA + C#，目标 10 万级物料 / 100 万级节点，离线优先架构。
+
 ---
 
-## 瀹夎
+## 安装
 
-1. 浠?[Releases](https://github.com/zgrwo/costsuite/releases) 涓嬭浇 `BomAddIn-packed.xll`
-2. Excel 鈫?鏂囦欢 鈫?閫夐」 鈫?鍔犺浇椤?鈫?杞埌 鈫?娴忚 鈫?閫夋嫨 .xll
-3. 鏈湴鏁版嵁搴撹嚜鍔ㄥ垵濮嬪寲锛圫QLite锛夛紝鏃犻渶棰濆閰嶇疆
+1. 从 [Releases](https://github.com/zgrwo/costsuite/releases) 下载 `BomAddIn-packed.xll`
+2. Excel &#8594; 文件 &#8594; 选项 &#8594; 加载项 &#8594; 转到 &#8594; 浏览 &#8594; 选择 .xll
+3. 本地数据库自动初始化（SQLite），无需额外配置
 
-### 楠岃瘉瀹夎
+### 验证安装
 
-鍦ㄤ换鎰忓崟鍏冩牸杈撳叆锛?```
+在任意单元格输入：
+```
 =BOM.PARSE("PN001", 1)
-鈫?灞曞紑 BOM 鏍?```
+&#8594; 展开 BOM 树
+```
 
 ---
 
-## 妯″潡閫熻
+## 模块速览
 
-> 瀹屾暣绛惧悕銆佸弬鏁拌鏄庤 **[API 鍙傝€僝(rules/api-reference.md)**锛涙瘡涓嚱鏁扮殑璇︾粏绀轰緥瑙?**[鐢ㄦ埛鎵嬪唽](rules/user-manual.md)**銆?
-| 妯″潡 | 鍋氫粈涔?| 璇曚竴璇?|
+> 完整签名、参数说明见 **[API 参考](rules/api-reference.md)**；每个函数的详细示例见 **[用户手册](rules/user-manual.md)**。
+
+| 模块 | 做什么 | 试一试 |
 |------|------|-------|
-| `BOM` | 鐗╂枡娓呭崟绠＄悊锛堣В鏋?灞曞紑/宸紓锛?| `=BOM.VARIANCE(bom1, bom2)` |
-| `Sync` | ERP 鏁版嵁鍚屾锛圫AP/Oracle/Excel锛?| 涓€閿悓姝ュ伐浣滅翱宸紓 |
-| `Dashboard` | WPF 浠〃鐩橈紙瓒嬪娍/缁熻/鍛婅锛?| 鑷畾涔夐潰鏉胯鍥?|
+| `BOM` | 物料清单管理（解析/展开/差异） | `=BOM.VARIANCE(bom1, bom2)` |
+| `Sync` | ERP 数据同步（SAP/Oracle/Excel） | 一键同步工作簿差异 |
+| `Dashboard` | WPF 仪表盘（趋势/统计/告警） | 自定义面板视图 |
 
 ---
 
-## 浣跨敤妯″紡
+## 使用模式
 
-### 宸ヤ綔琛?UDF
+### 工作表 UDF
 
 ```vb
-' BOM 瑙ｆ瀽锛堝崟灞傚睍寮€锛?=BOM.PARSE("PN001", 1)
+' BOM 解析（单层展开）
+=BOM.PARSE("PN001", 1)
 
-' BOM 宸紓鍒嗘瀽锛堜袱涓増鏈姣旓級
+' BOM 差异分析（两个版本对比）
 =BOM.VARIANCE(bom_version1, bom_version2)
 
-' 鏌ユ壘鐗╂枡璺緞锛堟墍鏈変娇鐢ㄤ綅缃級
+' 查找物料路径（所有使用位置）
 =BOM.WHERESUSED("PN005")
 ```
 
-### VBA 鑷姩鍖?
-```vba
-' 鍚庡彴鍚屾 ERP 鏁版嵁锛屼笉闃诲 Excel
-Application.Run("SYNC.IMPORT", "MaterialMaster")
-' 鍙缃畾鏃跺悓姝ラ棿闅?```
+### VBA 自动化
 
-### 浠〃鐩?
-鐐瑰嚮 Ribbon 鎸夐挳鎵撳紑 WPF 浠〃鐩橈紝瀹炴椂鏌ョ湅锛?- BOM 鐗堟湰宸紓瓒嬪娍
-- 鎴愭湰鍙樺寲鐑姏鍥?- 鐗╂枡缂哄け鍛婅
+```vba
+' 后台同步 ERP 数据，不阻塞 Excel
+Application.Run("SYNC.IMPORT", "MaterialMaster")
+' 可设置定时同步间隔
+```
+
+### 仪表盘
+
+点击 Ribbon 按钮打开 WPF 仪表盘，实时查看：
+- BOM 版本差异趋势
+- 成本变化热力图
+- 物料缺失告警
 
 ---
 
-## 鏋舵瀯鐗圭偣
+## 架构特点
 
 ```
-UI 灞?(Ribbon + TaskPane + WPF)
-  鈫?ExcelThreadDispatcher锛堣法绾跨▼ COM 璋冪敤锛?Service 灞?(BomService + SyncService)
-  鈫?涓氬姟缂栨帓锛屾湁鐘舵€?浜嬪姟
-Engine 灞?(VarianceCalculator)
-  鈫?绾绠楋紝闆朵緷璧栵紝鍙嫭绔嬪崟鍏冩祴璇?Data 灞?(SQLite + DuckDB)
-  绂荤嚎浼樺厛锛氭湰鍦扮紦瀛?+ 鎭㈠鍚庤嚜鍔ㄥ悓姝?```
+UI 层 (Ribbon + TaskPane + WPF)
+  &#8594; ExcelThreadDispatcher（跨线程 COM 调用）
+Service 层 (BomService + SyncService)
+  &#8594; 业务编排，有状态 / 事务
+Engine 层 (VarianceCalculator)
+  &#8594; 纯计算，零依赖，可独立单元测试
+Data 层 (SQLite + DuckDB)
+  离线优先：本地缓存 + 恢复后自动同步
+```
 
-- **SQLite**锛欳RUD 鎿嶄綔锛堢墿鏂欎富鏁版嵁銆丅OM 鐗堟湰锛?- **DuckDB**锛氬垎鏋愭煡璇紙宸紓鑱氬悎銆佽矾寰勫睍寮€锛?- **BFS 灞曞紑**锛氭浛浠ｉ€掑綊 CTE锛岄槻姝㈣矾寰勭垎鐐?- **绂荤嚎浼樺厛**锛氱綉缁滄柇寮€鑷姩鍒囨崲鏈湴锛屾仮澶嶅悗鑷姩鍚屾
+- **SQLite**：CRUD 操作（物料主数据、BOM 版本）
+- **DuckDB**：分析查询（差异聚合、路径展开）
+- **BFS 展开**：替代递归 CTE，防止路径爆炸
+- **离线优先**：网络断开自动切换本地，恢复后自动同步
 
 ---
 
-## 閿欒澶勭悊
+## 错误处理
 
-| 鍦烘櫙 | 琛屼负 |
+| 场景 | 行为 |
 |------|------|
-| BOM 鑺傜偣涓嶅瓨鍦?| `#VALUE!` |
-| 鐗╂枡缂栧彿鏍煎紡闈炴硶 | `#VALUE!` |
-| 鏁版嵁搴撹繛鎺ュけ璐?| 鑷姩闄嶇骇 SQLite 鏈湴缂撳瓨 |
-| ERP 鍚屾澶辫触 | Polly 閲嶈瘯 3 娆?+ Excel 瀵煎叆澶囩敤閫氶亾 |
-| 绾跨▼ COM 鍐茬獊 | QueueAsMacro 鍥炶皟 UI 绾跨▼ |
+| BOM 节点不存在 | `#VALUE!` |
+| 物料编号格式非法 | `#VALUE!` |
+| 数据库连接失败 | 自动降级 SQLite 本地缓存 |
+| ERP 同步失败 | Polly 重试 3 次 + Excel 导入备用通道 |
+| 线程 COM 冲突 | QueueAsMacro 回调 UI 线程 |
 
 ---
 
-## 瀹夊叏
+## 安全
 
-- **BCrypt 璁よ瘉**锛氱敤鎴风櫥褰曞瘑鐮佸畨鍏ㄥ搱甯?- **DPAPI 鍔犲瘑**锛歐indows 鏁版嵁淇濇姢 API 鍔犲瘑鏁忔劅瀛楁
-- **AES-256**锛氭湰鍦版暟鎹簱瀛楁绾у姞瀵?- **瀹¤鏃ュ織**锛欰OP 鎷︽埅鍏ㄩ噺鎿嶄綔瀹¤
-- **ERP 閲嶈瘯**锛歅olly 鏂矾鍣ㄩ槻姝㈠悓姝ラ鏆?
----
-
-## 璐ㄩ噺淇濊瘉
-
-- **xUnit + Moq**锛氬崟鍏冩祴璇?+ 妯℃嫙娴嬭瘯
-- **BenchmarkDotNet**锛氭€ц兘鍩哄噯娴嬭瘯锛圔OM 灞曞紑/宸紓璁＄畻锛?- **鍙屽紩鎿庢祴璇?*锛歋QLite 鍜?DuckDB 璺緞鐙珛楠岃瘉
-- **绾跨▼瀹夊叏娴嬭瘯**锛氬帇鍔涙祴璇?30min锛? 绾跨▼寮傚父
+- **BCrypt 认证**：用户登录密码安全哈希
+- **DPAPI 加密**：Windows 数据保护 API 加密敏感字段
+- **AES-256**：本地数据库字段级加密
+- **审计日志**：AOP 拦截全量操作审计
+- **ERP 重试**：Polly 断路器防止同步风暴
 
 ---
 
-## 宸茬煡闄愬埗
+## 质量保证
 
-- **Windows Only**锛氫緷璧?Excel-DNA + COM + DPAPI
-- **Excel 2016+**锛歯et472 鍩哄噯锛屼笉鏀寔 Excel 2013 鍙婁互涓?- **棣栨鍚屾**锛氬ぇ鍨?ERP 鍏ㄩ噺鍚屾鍙兘鑰楁椂鏁板垎閽燂紙鍚庣画澧為噺绉掔骇锛?
----
-
-## 璐＄尞
-
-璇烽槄璇?[CONTRIBUTING.md](CONTRIBUTING.md) 浜嗚В璐＄尞娴佺▼锛坒ork 鈫?PR 鈫?review锛夈€?
----
-
-## 璁稿彲璇?
-[MIT](LICENSE) 漏 zgrwo
+- **xUnit + Moq**：单元测试 + 模拟测试
+- **BenchmarkDotNet**：性能基准测试（BOM 展开/差异计算）
+- **双引擎测试**：SQLite 和 DuckDB 路径独立验证
+- **线程安全测试**：压力测试 30min，0 线程异常
 
 ---
 
-## 浠庢簮鐮佹瀯寤?
+## 已知限制
+
+- **Windows Only**：依赖 Excel-DNA + COM + DPAPI
+- **Excel 2016+**：net472 基准，不支持 Excel 2013 及以下
+- **首次同步**：大型 ERP 全量同步可能耗时数分钟（后续增量秒级）
+
+---
+
+## 贡献
+
+请阅读 [CONTRIBUTING.md](CONTRIBUTING.md) 了解贡献流程（fork &#8594; PR &#8594; review）。
+
+---
+
+## 许可证
+
+[MIT](LICENSE) &copy; zgrwo
+
+---
+
+## 从源码构建
+
 ```bash
-# 寮€鍙戞瀯寤?dotnet restore && dotnet build && dotnet test
+# 开发构建
+dotnet restore && dotnet build && dotnet test
 
-# 鍒嗗彂鏋勫缓锛堢敓鎴?.xll锛?dotnet build -c Release
+# 分发构建（生成 .xll）
+dotnet build -c Release
 ExcelDnaPack BomAddIn.dna
 ```
 
 ---
 
-## 鏂囨。绱㈠紩
+## 文档索引
 
-| 鏂囨。 | 瑙掕壊 | 鍐呭 |
+| 文档 | 角色 | 内容 |
 |------|------|------|
-| [API 鍙傝€僝(rules/api-reference.md) | 鏁板瓧鍞竴淇℃簮 | 8 涓?UDF 绛惧悕銆佸弬鏁拌鏄?|
-| [鐢ㄦ埛鎵嬪唽](rules/user-manual.md) | 瀛︿範鏁欑▼ | 姣忎釜鍑芥暟璇︾粏绀轰緥 + 缁撴灉瑙ｈ |
-| [context.md](rules/context.md) | 鏈琛?| 鎵€鏈夐鍩熸湳璇敮涓€瀹氫箟 |
-| [project-structure.md](rules/project-structure.md) | 缁撴瀯鍦板浘 | 鏂囦欢鑱岃矗涓庡眰绾у叧绯?|
-| [agents.md](agents.md) | 椤圭洰瀹硶 | 鏋舵瀯鍒嗗眰銆佺孩绾胯鍒欍€佸紑鍙戞祦绋?|
+| [API 参考](rules/api-reference.md) | 数字唯一信源 | 8 个 UDF 签名、参数说明 |
+| [用户手册](rules/user-manual.md) | 学习教程 | 每个函数详细示例 + 结果解读 |
+| [context.md](rules/context.md) | 术语表 | 所有领域术语唯一定义 |
+| [project-structure.md](rules/project-structure.md) | 结构地图 | 文件职责与层级关系 |
+| [agents.md](agents.md) | 项目宪法 | 架构分层、红线规则、开发流程 |
+
+---
+
+## 治理体系说明
+
+本项目遵循 [Harmonization 治理规范](https://github.com/zgrwo/Harmonization) 模板体系：
+
+| 文件 | 面向 | 职责 |
+|------|------|------|
+| `agents.md` | AI 编程助手 | 项目宪法——架构、红线、编码准则、防幻觉铁律 |
+| `readme.md` | 人类用户 | 功能指南——安装、模块速览、使用模式（本文件） |
+| `rules/` | AI + 人类 | 规范文档——API 参考、用户手册、术语表、审查模板 |
+| `skills/` | AI 编码 | 技能定义——语言陷阱、编码模式、重构守则 |
+
+**核心原则**：SSOT（信息只在一处定义）、Skill-first（修改代码前加载技能）、四条核心准则。
