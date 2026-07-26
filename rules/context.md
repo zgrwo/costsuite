@@ -78,7 +78,7 @@ Excel 宿主 ← Excel-DNA (C# .dll → .xll)
   5. skills/                     ← 写代码前读对应的 skill
 
 已有上下文，需要写代码：
-  CLAUDE.md → 任务路由表         ← "我要做 X，该读哪个文件"
+  agents.md → 任务路由表         ← “我要做 X，该读哪个文件”
 
 审查与质量：
   .claude/reports/code-review-2026-07-13.md  ← 最近一次全面深度审查报告（77 项发现）
@@ -121,5 +121,5 @@ A: 不可以。这是 📸 只读快照——记录的是某个时间点的评�
 ---
 
 > 📋 项目入口：[README.md](../README.md)（用户视角）  
-> 🤖 AI 协作：[CLAUDE.md](../CLAUDE.md)（AI 行为准则）  
+> 🤖 AI 协作：[agents.md](../agents.md)（AI 行为准则）  
 > 📐 全文档导航：[project-structure.md §2.1](./project-structure.md#21-文档分工5s单源真理)
