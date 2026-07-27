@@ -156,7 +156,7 @@ public class Program
         try
         {
             var exeDir = Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location);
-            var configFiles = new[] { "NLog.config" };
+            var configFiles = new[] { "BomAddIn-AddIn.dna", "BomAddIn-AddIn64.dna" };
             foreach (var f in configFiles)
             {
                 var path = Path.Combine(exeDir ?? ".", f);
@@ -308,7 +308,7 @@ public class Program
     /// <summary>查看最近错误日志 (M-6)</summary>
     private static void ShowRecentErrors()
     {
-        // 查找 NLog 日志文件
+        // 查找日志文件（AppLogger sink 输出）
         var logDirs = new List<string>();
 
         // EXE 同级目录

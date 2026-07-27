@@ -61,7 +61,7 @@
 Excel 宿主 ← Excel-DNA (C# .dll → .xll)
 业务逻辑 ← C# netstandard2.0（纯代码，可独立单测）
 数据访问 ← Dapper + SQLite（本地主库）+ DuckDB（分析引擎）
-数据同步 ← Polly 重试 + 适配器模式对接 ERP
+数据同步 ← 内置指数退避重试 + 适配器模式对接 ERP
 前端     ← WPF 仪表盘（独立窗口）+ Excel UDF（公式栏）
 ```
 

@@ -130,14 +130,14 @@ costsuite/
 ### 4. 安全
 
 - BCrypt 认证 + DPAPI 加密
-- AES-256 数据加密
-- 全量审计日志（AOP 拦截）
-- ERP 同步 Polly 重试
+- AES-256 字段加密（代码就绪，V2.0 启用）
+- AuditService 关键操作审计
+- ERP 同步内置指数退避重试
 
 ### 5. Excel-DNA 兼容
 
-- ExplicitExports=true（NLog/BCrypt 等纯依赖用 Reference）
-- net472 基准（Excel 2016 兼容）
+- ExplicitExports=true（BCrypt 等纯依赖用 Reference）
+- net472 基准（Excel 2019+ 兼容）
 - UDF 参数全部 object
 
 ## 技术栈
@@ -147,7 +147,7 @@ costsuite/
 | Excel 集成 | Excel-DNA · COM Interop · WPF · WinForms |
 | 业务逻辑 | C# · FluentValidation · LINQ |
 | 数据访问 | Dapper · SQLite + DuckDB · System.Data.SQLite |
-| 基础设施 | NLog · Polly · BCrypt · DPAPI · BenchmarkDotNet |
+| 基础设施 | BCrypt · DPAPI · BenchmarkDotNet · AppLogger |
 | 测试 | xUnit · Moq |
 | CI/CD | GitHub Actions |
 
@@ -177,7 +177,7 @@ costsuite/
 - 离线优先架构：SQLite 本地缓存 + 恢复后自动同步
 - 双引擎数据层：SQLite (CRUD) + DuckDB (分析)
 - BFS 迭代替代递归 CTE：防止路径爆炸
-- 适配器模式 ERP 同步：Polly 重试 + Excel 导入备用通道
+- 适配器模式 ERP 同步：内置指数退避重试 + Excel 导入备用通道
 
 ## 开发流程
 

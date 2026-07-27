@@ -148,7 +148,7 @@ BomAddIn.sln
 | `src/BomAddIn` | `BomAddIn.dll` | Excel-DNA Add-in | `net472` | UI + Bridge + UDF 入口。唯一引用 Excel-DNA 的程序集 |
 | `src/BomAddIn.Core` | `BomAddIn.Core.dll` | 类库 | `netstandard2.0` | 领域模型、BLL 服务、差异引擎、事件契约 |
 | `src/BomAddIn.Data` | `BomAddIn.Data.dll` | 类库 | `netstandard2.0` | Repository、缓存、同步适配器、DuckDB 分析、DbUp 迁移 |
-| `src/BomAddIn.Infrastructure` | `BomAddIn.Infrastructure.dll` | 类库 | `netstandard2.0` | NLog、加密、审计、配置、网络检测 |
+| `src/BomAddIn.Infrastructure` | `BomAddIn.Infrastructure.dll` | 类库 | `netstandard2.0` | AppLogger、加密、审计、配置、网络检测 |
 | `tests/BomAddIn.UnitTests` | — | xUnit | `net472` / `net8.0` | 单元测试（Mock 全部外部依赖） |
 | `tests/BomAddIn.IntegrationTests` | — | xUnit | `net472` / `net8.0` | 集成测试（真实数据库 via TestContainers） |
 | `tests/BomAddIn.ThreadingTests` | — | 自定义 | `net472` | Excel COM 线程安全压力测试 |
@@ -176,12 +176,12 @@ BomAddIn.sln
 │         BomAddIn.Data             │
 │    (DAL + Repository + Sync)       │  ← 数据访问
 └──────────────┬───────────────────┘    引用: Dapper, System.Data.SQLite
-               │ 引用                     DuckDB.NET.Data, Polly, DbUp
+               │ 引用                     DuckDB.NET.Data, DbUp
                ▼
 ┌──────────────────────────────────┐
 │     BomAddIn.Infrastructure       │
 │  (Logging + Security + Audit)     │  ← 横切关注点
-└──────────────────────────────────┘    引用: NLog, BCrypt.Net-Next
+└──────────────────────────────────┘    引用: BCrypt.Net-Next
                                               Microsoft.Extensions.DependencyInjection
                                               System.Security.Cryptography.ProtectedData
 ```
@@ -191,7 +191,7 @@ BomAddIn.sln
 | 规则 | 说明 |
 |------|------|
 | **单向依赖** | 只能从上往下引用，禁止反向 |
-| **Core = 纯净室** | `BomAddIn.Core` 不得引用 `ExcelDna*`、`System.Data*`、`NLog` 等 |
+| **Core = 纯净室** | `BomAddIn.Core` 不得引用 `ExcelDna*`、`System.Data*` 等 |
 | **Data 不知 UI** | `BomAddIn.Data` 不得引用 `BomAddIn` |
 | **Infra 不知业务** | `BomAddIn.Infrastructure` 不得引用 `Core` 和 `Data` |
 | **测试可跨层** | 测试项目可以引用任何 `src/` 项目 + Mock/TestContainers 等 |
@@ -237,7 +237,7 @@ BomAddIn/
 ├── Bootstrap/
 │   ├── AutoOpen.cs                           # Excel-DNA AutoOpen 入口 + DI 容器初始化
 │   ├── ServiceConfigurator.cs                # DI 注册（按层分组的方法）
-│   └── LogConfigurator.cs                    # NLog 配置占位
+│   └── LogConfigurator.cs                    # 日志配置占位
 ├── BomAddIn.csproj
 ├── BomAddIn-AddIn.dna                        # 32 位 Excel-DNA 配置
 └── BomAddIn-AddIn64.dna                      # 64 位 Excel-DNA 配置
@@ -606,7 +606,7 @@ user.config
 | 2 | 创建 4 个 `src/` 项目 + 4 个 `tests/` 项目 | 8 个 `.csproj` |
 | 3 | 配置项目引用（按 §3.2 依赖图） | 单向依赖链 |
 | 4 | 添加 `Directory.Build.props` + `.editorconfig` | 统一构建配置 |
-| 5 | 添加 NuGet 包（Dapper、NLog、Polly 等） | `packages.config` 或 `PackageReference` |
+| 5 | 添加 NuGet 包（Dapper、BCrypt 等） | `packages.config` 或 `PackageReference` |
 | 6 | 创建 `Bridge/ExcelThreadDispatcher.cs` + 接口 | Sprint 0 探针 P-0.1 |
 | 7 | 配置 `.dna` 文件 | Excel-DNA 加载链路 |
 | 8 | 编写 `Bootstrap/AutoOpen.cs` (DI + 健康检查) | 骨架可运行 |

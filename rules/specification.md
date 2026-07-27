@@ -44,7 +44,10 @@
 
 ## 2. 架构设计
 
-### 2.1 六层架构
+### 2.1 四层项目架构（UI→Service→Engine→Data）
+
+> ℹ️ v1.1.0 架构简化：物理项目为 4 个（BomAddIn / BomAddIn.Core / BomAddIn.Data / BomAddIn.Infrastructure），
+> 下图为逻辑职责分层说明，已移除 MediatR/Polly/NLog/AES 活跃引用。
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────┐

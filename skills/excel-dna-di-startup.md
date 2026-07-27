@@ -13,7 +13,7 @@
 启动链路（AutoOpen 中按顺序执行）：
 
   1. 捕获 Excel 主线程 ID
-  2. 初始化 NLog（最先，确保后续步骤的日志可记录）
+  2. 初始化日志（AppLogger + FileLogSink，最先，确保后续步骤的日志可记录）
   3. 配置 DI 容器（分层注册）
   4. 运行启动健康检查（DB / 网络 / SQLite / 版本）
   5. 注册 Excel 事件（关闭、工作簿切换）
@@ -295,7 +295,7 @@ public class DatabaseHealthCheck : IHealthCheck
 - [ ] DI 容器在 `AutoClose()` 中正确释放
 - [ ] 迁移脚本作为嵌入式资源（不依赖外部文件路径）
 - [ ] `Container` 服务定位器仅用于 UDF（UI 使用构造函数注入）
-- [ ] NLog 在所有其他组件之前初始化
+- [ ] 日志系统（AppLogger + FileLogSink）在所有其他组件之前初始化
 - [ ] Excel 关闭事件中保存了 SQLite 缓存
 
 ## 7. ⚠️ 已知陷阱（2026-07-15 深度排查经验）
@@ -307,13 +307,13 @@ Excel-DNA 1.8.0 + net472 组合下，ExternalLibrary 数量超过 ~22 时，Exce
 **规避方案**：
 - 将非 UDF 导出的托管依赖移入 `<Reference>` 标签（CLR 延迟解析）
 - 仅项目 DLL + 直接依赖（DI、shim）放在 ExternalLibrary
-- DuckDB、Polly、ExcelDataReader 等重量级依赖全部用 Reference
+- DuckDB、ExcelDataReader 等重量级依赖全部用 Reference
 
 **安全配置**：
 ```xml
 <!-- 最多 22 个 ExternalLibrary（全部纯托管） -->
 <ExternalLibrary Path="BomAddIn.dll" Pack="true" ExplicitExports="true" />
-<!-- NuGet 纯托管: SQLite, Dapper, NLog, BCrypt, DbUp, DI, shim -->
+<!-- NuGet 纯托管: SQLite, Dapper, BCrypt, DbUp, DI, shim -->
 <!-- 重量级 + 原生: 全部 Reference -->
 <Reference Path="DuckDB.NET.Data.dll" Pack="true" />
 <Reference Path="duckdb.dll" Pack="false" />

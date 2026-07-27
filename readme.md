@@ -91,7 +91,7 @@ Data 层 (SQLite + DuckDB)
 | BOM 节点不存在 | `#VALUE!` |
 | 物料编号格式非法 | `#VALUE!` |
 | 数据库连接失败 | 自动降级 SQLite 本地缓存 |
-| ERP 同步失败 | Polly 重试 3 次 + Excel 导入备用通道 |
+| ERP 同步失败 | 内置指数退避重试 3 次 + Excel 导入备用通道 |
 | 线程 COM 冲突 | QueueAsMacro 回调 UI 线程 |
 
 ---
@@ -100,9 +100,9 @@ Data 层 (SQLite + DuckDB)
 
 - **BCrypt 认证**：用户登录密码安全哈希
 - **DPAPI 加密**：Windows 数据保护 API 加密敏感字段
-- **AES-256**：本地数据库字段级加密
-- **审计日志**：AOP 拦截全量操作审计
-- **ERP 重试**：Polly 断路器防止同步风暴
+- **AES-256**：字段级加密代码已就绪（V2.0 启用，当前未激活）
+- **审计日志**：AuditService 记录关键操作
+- **ERP 重试**：内置指数退避 + 随机抖动防止同步风暴
 
 ---
 
@@ -118,7 +118,7 @@ Data 层 (SQLite + DuckDB)
 ## 已知限制
 
 - **Windows Only**：依赖 Excel-DNA + COM + DPAPI
-- **Excel 2016+**：net472 基准，不支持 Excel 2013 及以下
+- **Excel 2019+**：net472 基准，不支持 Excel 2016 及以下
 - **首次同步**：大型 ERP 全量同步可能耗时数分钟（后续增量秒级）
 
 ---

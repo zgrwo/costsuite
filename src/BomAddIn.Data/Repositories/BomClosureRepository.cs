@@ -62,6 +62,9 @@ namespace BomAddIn.Data.Repositories
 
         public void Rebuild()
         {
+            // 设计说明：Rebuild CTE 存储上限为 50 层（保持闭包表完整性），
+            // 而查询层（BomAnalysisProvider）截断为 20 层并插入 [TRUNCATED] 哨兵。
+            // 存储完整 + 展示截断，确保超深 BOM 数据不丢失且用户可见警告。
             using var conn = _connectionFactory.CreateConnection();
             conn.Execute(@"
                 DELETE FROM BomClosure;
