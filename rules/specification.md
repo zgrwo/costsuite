@@ -69,7 +69,7 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │                      数据访问层 (DAL)                                │
 │  SQLite(CRUD) · DuckDB(分析) · MemoryCache(L1) · 简单重试        │
-│  技术: Dapper · System.Data.SQLite · DuckDB.NET · DbUp             │
+│  技术: Dapper · System.Data.SQLite · DuckDB.NET                    │
 ├─────────────────────────────────────────────────────────────────────┤
 │                      基础设施层 (Infrastructure)                     │
 │  文件日志 · CI/CD · 配置中心 · 审计日志 · BCrypt 密码哈希       │

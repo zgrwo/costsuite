@@ -14,7 +14,7 @@
 
 在任意单元格输入：
 ```
-=BOM.PARSE("PN001", 1)
+=BOMEXPAND("MAT-001")
 &#8594; 展开 BOM 树
 ```
 
@@ -26,8 +26,9 @@
 
 | 模块 | 做什么 | 试一试 |
 |------|------|-------|
-| `BOM` | 物料清单管理（解析/展开/差异） | `=BOM.VARIANCE(bom1, bom2)` |
-| `Sync` | ERP 数据同步（SAP/Oracle/Excel） | 一键同步工作簿差异 |
+| `BOM` | 物料清单管理（展开/成本/差异） | `=BOMEXPAND("MAT-001")` |
+| `Data` | 数据查询（价格/库存/订单） | `=PRICELOOKUP("MAT-001")` |
+| `Sync` | ERP 数据同步状态 | `=SYNCSTATUS()` |
 | `Dashboard` | WPF 仪表盘（趋势/统计/告警） | 自定义面板视图 |
 
 ---
@@ -37,22 +38,30 @@
 ### 工作表 UDF
 
 ```vb
-' BOM 解析（单层展开）
-=BOM.PARSE("PN001", 1)
+' BOM 展开（完整结构）
+=BOMEXPAND("MAT-001")
+
+' BOM 成本汇总
+=BOMCOST("MAT-001")
 
 ' BOM 差异分析（两个版本对比）
-=BOM.VARIANCE(bom_version1, bom_version2)
+=VARIANCECHECK("MAT-001", "v1", "v2")
 
-' 查找物料路径（所有使用位置）
-=BOM.WHERESUSED("PN005")
+' 查询物料价格
+=PRICELOOKUP("MAT-001")
 ```
 
-### VBA 自动化
+### 数据查询
 
-```vba
-' 后台同步 ERP 数据，不阻塞 Excel
-Application.Run("SYNC.IMPORT", "MaterialMaster")
-' 可设置定时同步间隔
+```vb
+' 查询库存
+=INVENTORYQTY("MAT-001")
+
+' 查询订单状态
+=ORDERSTATUS("MAT-001")
+
+' 检查预警状态
+=ALERTCHECK("MAT-001")
 ```
 
 ### 仪表盘

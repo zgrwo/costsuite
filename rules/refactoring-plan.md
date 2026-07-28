@@ -68,8 +68,8 @@
 - [ ] 缺少集成测试（BOM 展开/差异计算/同步）
 - [ ] 缺少性能测试（10 万物料/100 万节点）
 - [ ] CI workflow 损坏（step-level strategy.matrix 无效）
-- [ ] 迁移脚本从 DbUp 改为 System.Data.SQLite（需验证）
-- [ ] 无 LICENSE / CONTRIBUTING.md / CHANGELOG
+- [x] ~~迁移脚本从 DbUp 改为 System.Data.SQLite~~（已完成，DatabaseMigrator.cs）
+- [x] ~~无 LICENSE / CONTRIBUTING.md / CHANGELOG~~（已补齐）
 - [ ] 规格文档包含未验证功能（ERP/gRPC/审批流）
 
 ## 2. 重构目标

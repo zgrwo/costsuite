@@ -147,7 +147,7 @@ BomAddIn.sln
 |------|---------|------|---------|------|
 | `src/BomAddIn` | `BomAddIn.dll` | Excel-DNA Add-in | `net472` | UI + Bridge + UDF 入口。唯一引用 Excel-DNA 的程序集 |
 | `src/BomAddIn.Core` | `BomAddIn.Core.dll` | 类库 | `netstandard2.0` | 领域模型、BLL 服务、差异引擎、事件契约 |
-| `src/BomAddIn.Data` | `BomAddIn.Data.dll` | 类库 | `netstandard2.0` | Repository、缓存、同步适配器、DuckDB 分析、DbUp 迁移 |
+| `src/BomAddIn.Data` | `BomAddIn.Data.dll` | 类库 | `netstandard2.0` | Repository、缓存、同步适配器、DuckDB 分析、SQLite 迁移 |
 | `src/BomAddIn.Infrastructure` | `BomAddIn.Infrastructure.dll` | 类库 | `netstandard2.0` | AppLogger、加密、审计、配置、网络检测 |
 | `tests/BomAddIn.UnitTests` | — | xUnit | `net472` / `net8.0` | 单元测试（Mock 全部外部依赖） |
 | `tests/BomAddIn.IntegrationTests` | — | xUnit | `net472` / `net8.0` | 集成测试（真实数据库 via TestContainers） |
@@ -176,7 +176,7 @@ BomAddIn.sln
 │         BomAddIn.Data             │
 │    (DAL + Repository + Sync)       │  ← 数据访问
 └──────────────┬───────────────────┘    引用: Dapper, System.Data.SQLite
-               │ 引用                     DuckDB.NET.Data, DbUp
+               │ 引用                     DuckDB.NET.Data
                ▼
 ┌──────────────────────────────────┐
 │     BomAddIn.Infrastructure       │
@@ -378,7 +378,7 @@ database/
     └── bom_data.sqlite                        # 生产环境数据库
 ```
 
-> **说明**: DbUp 迁移脚本位于 `src/BomAddIn.Data/Migrations/`，由 `DatabaseMigrator` 自动执行。
+> **说明**: 迁移脚本位于 `src/BomAddIn.Data/Migrations/`，由 `DatabaseMigrator`（System.Data.SQLite）自动执行。
 
 ---
 
@@ -470,7 +470,7 @@ IBomServiceTests.cs   ← 对应的单元测试
 - Exception: `Enums/VersionState.cs` 可含多个相关枚举
 - Exception: `Events/DataRefreshedEvent.cs` 可共置 Event + Handler 接口
 
-### 6.3 DbUp 迁移命名
+### 6.3 迁移脚本命名
 
 ```
 S{序号}_{描述}.sql
@@ -482,7 +482,7 @@ S{序号}_{描述}.sql
 ```
 
 - 序号递增、不跳号、不复用
-- 已执行的迁移永远不修改（只增不改，DbUp 核心原则）
+- 已执行的迁移永远不修改（只增不改，幂等性核心原则）
 
 ### 6.4 测试文件命名
 
