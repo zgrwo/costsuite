@@ -164,11 +164,11 @@ namespace BomAddIn.Core.Services
                 // 4. 事务批量写入 — 全部成功或全部回滚 (C-16)
                 // D-3 fix: 重试+断路器包裹整个事务，而非内部单块写入，避免重试时重复插入
                 var total = 0;
-                var materialsList = materialsTask.Result.ToList();
-                var pricesList = pricesTask.Result.ToList();
-                var inventoriesList = inventoriesTask.Result.ToList();
-                var ordersList = ordersTask.Result.ToList();
-                var capacitiesList = capacitiesTask.Result.ToList();
+                var materialsList = (await materialsTask).ToList();
+                var pricesList = (await pricesTask).ToList();
+                var inventoriesList = (await inventoriesTask).ToList();
+                var ordersList = (await ordersTask).ToList();
+                var capacitiesList = (await capacitiesTask).ToList();
 
                 await ExecuteWrappedTransaction(() =>
                 {

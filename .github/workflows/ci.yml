@@ -102,6 +102,21 @@ jobs:
           Write-Host "Could not parse coverage percentage from summary."
         }
 
+    # Architecture compliance: Core layer must not reference ExcelDna or UI packages
+    - name: Validate architecture boundaries
+      shell: pwsh
+      run: |
+        $coreProj = Get-Content "src/BomAddIn.Core/BomAddIn.Core.csproj" -Raw
+        $violations = @()
+        if ($coreProj -match 'ExcelDna') { $violations += "Core references ExcelDna" }
+        if ($coreProj -match 'System\.Windows') { $violations += "Core references System.Windows" }
+        if ($coreProj -match 'Microsoft\.Office') { $violations += "Core references Microsoft.Office" }
+        if ($violations.Count -gt 0) {
+          Write-Error "Architecture violations in Core layer: $($violations -join ', ')"
+          exit 1
+        }
+        Write-Host "Architecture validation passed: Core layer has no UI/Excel dependencies"
+
     # TODO: SonarQube — add SonarCloud/SonarQube scan step (plan §5.1: "SonarQube 无 Critical")
     # TODO: Security  — add CodeQL analysis workflow (.github/workflows/codeql.yml)
 

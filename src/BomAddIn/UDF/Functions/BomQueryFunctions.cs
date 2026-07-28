@@ -17,6 +17,8 @@ namespace BomAddIn.UDF.Functions
         /// =BOMEXPAND(itemCode, [asOfDate], [versionState])
         /// 展开指定物料的完整 BOM 结构，返回多层级扁平列表。
         /// </summary>
+        // TODO: Per spec §8.1, pure query functions should be IsThreadSafe = true.
+        // Currently false pending verification of Container.BeginScope() thread safety.
         [ExcelFunction(Name = "BOMEXPAND", Description = "展开指定物料的完整BOM结构",
             IsThreadSafe = false, IsVolatile = false)]
         public static object BomExpand(
@@ -89,6 +91,8 @@ namespace BomAddIn.UDF.Functions
                 var service = scope.ServiceProvider.GetRequiredService<IBomService>();
 
                 // Verify item exists — empty means item not found
+                // NOTE: CalculateCost internally calls Expand again (cached after first call).
+                // Future optimization: return Nullable<double> from CalculateCost to avoid double Expand.
                 var nodes = service.Expand(itemCode, date);
                 if (nodes.Count == 0)
                     return ExcelError.ExcelErrorNA;

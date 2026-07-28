@@ -9,7 +9,6 @@ using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.Infrastructure.Models.Enums;
-using Dapper;
 
 namespace BomAddIn.Core.Services
 {
@@ -202,22 +201,23 @@ namespace BomAddIn.Core.Services
                 return 0;
 
             // 批量查询所有物料单价（通过 IPriceRecordRepository 替代原始 Dapper）
+            // 使用 decimal 保持价格精度，最终输出时转为 double
             var materialIds = nodes.Select(n => n.MaterialId).Distinct();
             var priceMap = _priceRecordRepo.GetByMaterialIdsAndDate(materialIds, date)
-                .ToDictionary(p => p.Key, p => (double)p.Value.UnitPrice);
+                .ToDictionary(p => p.Key, p => p.Value.UnitPrice);
 
             // Closure Table 路径：所有后代 ParentMaterialId 为 null，但 Quantity 已是累积路径数量。
             // 总成本 = Σ(各节点累积数量 × 单价)，无需 parent→children 树形汇总。
             bool isClosurePath = nodes.Count > 1 && nodes.All(n => n.Level == 0 || !n.ParentMaterialId.HasValue);
             if (isClosurePath)
             {
-                double total = 0;
+                decimal total = 0m;
                 foreach (var n in nodes)
                 {
-                    double price = priceMap.TryGetValue(n.MaterialId, out var p) ? p : 0.0;
-                    total += price * n.Quantity;
+                    decimal price = priceMap.TryGetValue(n.MaterialId, out var p) ? p : 0m;
+                    total += price * (decimal)n.Quantity;
                 }
-                return Math.Round(total, 2);
+                return (double)Math.Round(total, 2);
             }
 
             // 预构建 parent→children 索引（O(n)）
@@ -240,11 +240,12 @@ namespace BomAddIn.Core.Services
             // ⚠️ G-1 note: Dictionary<BomExpandedNode,double> 依赖引用相等（BomExpandedNode 未重写 Equals）。
             // costs[node] 和 costs[child] 使用来自同一 Expand() 返回列表的同一对象实例 → 安全。
             // 如未来 Expand() 返回新实例（克隆/投影/反序列化），需改用复合键或为 BomExpandedNode 添加 identity 列。
+            // TODO: 考虑将 BFS 路径也改为 decimal 计算（当前 Closure 路径已使用 decimal）
             string NodeKey(BomExpandedNode n) => $"{n.ItemCode}|{n.ParentMaterialId}|{n.Level}|{n.MaterialId}";
             var costs = new Dictionary<string, double>();
             foreach (var node in nodes.OrderByDescending(n => n.Level))
             {
-                double unitPrice = priceMap.TryGetValue(node.MaterialId, out var p) ? p : 0.0;
+                double unitPrice = priceMap.TryGetValue(node.MaterialId, out var p) ? (double)p : 0.0;
                 double ownCost = unitPrice * node.Quantity;
 
                 double childrenCost = 0;

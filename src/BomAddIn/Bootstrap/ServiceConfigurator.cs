@@ -215,8 +215,8 @@ namespace BomAddIn
             services.AddSingleton<IVarianceCalculator, VarianceCalculator>();
             services.AddSingleton<IAlertEvaluator, AlertEvaluator>();
 
-            // Excel Import (Singleton — stateless)
-            services.AddSingleton<IBomExcelImporter, BomExcelImporter>();
+            // Excel Import (Scoped — depends on Scoped repositories)
+            services.AddScoped<IBomExcelImporter, BomExcelImporter>();
 
             // Audit (Scoped — 业务审计日志)
             services.AddScoped<IAuditService, AuditService>();
