@@ -8,6 +8,8 @@ namespace BomAddIn.EventBus
     public interface IEventBus
     {
         void Subscribe<T>(Action<T> handler);
+        /// <summary>强引用订阅 — 适用于必须保持活跃的关键订阅（如 Dashboard）。需手动 Unsubscribe。</summary>
+        void SubscribeStrong<T>(Action<T> handler);
         void Unsubscribe<T>(Action<T> handler);
         void Publish<T>(T @event);
         void Clear();

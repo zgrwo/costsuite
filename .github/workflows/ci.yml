@@ -50,8 +50,8 @@ jobs:
         --collect:"XPlat Code Coverage" --results-directory coverage/BomAddIn.IntegrationTests
         --verbosity normal
 
+    # CI-1 fix: 线程安全是项目红线 (agents.md §红线1)，回归必须阻断合并
     - name: Threading Tests
-      continue-on-error: true
       run: >
         dotnet test tests/BomAddIn.ThreadingTests/BomAddIn.ThreadingTests.csproj
         --configuration ${{ env.CONFIGURATION }} --no-build
@@ -86,7 +86,9 @@ jobs:
       run: |
         $summaryFile = "coverage/report/Summary.txt"
         if (-not (Test-Path $summaryFile)) {
-          Write-Host "No coverage summary found, skipping threshold check."
+          # CI-2 fix: 覆盖率数据缺失时发出警告（而非静默通过）
+          Write-Warning "No coverage summary found at $summaryFile. Coverage collection may have failed."
+          Write-Host "::warning::Coverage data missing — threshold check skipped. Verify coverage collector is working."
           exit 0
         }
         $summary = Get-Content $summaryFile -Raw
@@ -99,26 +101,41 @@ jobs:
           }
           Write-Host "Coverage threshold met: $lineCov% >= 80%"
         } else {
-          Write-Host "Could not parse coverage percentage from summary."
+          Write-Warning "Could not parse coverage percentage from summary."
+          Write-Host "::warning::Coverage format unrecognized — threshold check skipped."
         }
 
     # Architecture compliance: Core layer must not reference ExcelDna or UI packages
+    # CI-3 fix: 增强架构边界验证 — 同时检查 Data 层不引用 UI 程序集
     - name: Validate architecture boundaries
       shell: pwsh
       run: |
-        $coreProj = Get-Content "src/BomAddIn.Core/BomAddIn.Core.csproj" -Raw
         $violations = @()
+
+        # Core 层: 禁止引用 Excel/Windows/Office
+        $coreProj = Get-Content "src/BomAddIn.Core/BomAddIn.Core.csproj" -Raw
         if ($coreProj -match 'ExcelDna') { $violations += "Core references ExcelDna" }
         if ($coreProj -match 'System\.Windows') { $violations += "Core references System.Windows" }
         if ($coreProj -match 'Microsoft\.Office') { $violations += "Core references Microsoft.Office" }
+
+        # Data 层: 禁止引用 UI 程序集和 Excel-DNA
+        $dataProj = Get-Content "src/BomAddIn.Data/BomAddIn.Data.csproj" -Raw
+        if ($dataProj -match 'BomAddIn\.csproj') { $violations += "Data references BomAddIn (UI)" }
+        if ($dataProj -match 'ExcelDna') { $violations += "Data references ExcelDna" }
+
+        # Infrastructure 层: 禁止引用 Core 和 Data
+        $infraProj = Get-Content "src/BomAddIn.Infrastructure/BomAddIn.Infrastructure.csproj" -Raw
+        if ($infraProj -match 'BomAddIn\.Core') { $violations += "Infrastructure references Core" }
+        if ($infraProj -match 'BomAddIn\.Data') { $violations += "Infrastructure references Data" }
+
         if ($violations.Count -gt 0) {
-          Write-Error "Architecture violations in Core layer: $($violations -join ', ')"
+          Write-Error "Architecture violations: $($violations -join ', ')"
           exit 1
         }
-        Write-Host "Architecture validation passed: Core layer has no UI/Excel dependencies"
+        Write-Host "Architecture validation passed: all layer boundaries respected"
 
     # TODO: SonarQube — add SonarCloud/SonarQube scan step (plan §5.1: "SonarQube 无 Critical")
-    # TODO: Security  — add CodeQL analysis workflow (.github/workflows/codeql.yml)
+    # CodeQL 安全扫描已配置: .github/workflows/codeql.yml
 
     - name: Upload test results
       if: always()

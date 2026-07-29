@@ -35,6 +35,17 @@ namespace BomAddIn.Data.Repositories
                 new { MaterialId = materialId, Date = date.ToString("o") });
         }
 
+        public InventoryRecord? GetLatestByMaterialAndWarehouse(long materialId, string warehouseId)
+        {
+            using var conn = _connectionFactory.CreateConnection();
+            return conn.QueryFirstOrDefault<InventoryRecord>(
+                @"SELECT * FROM Inventories
+                  WHERE MaterialId = @MaterialId AND WarehouseId = @WarehouseId
+                  ORDER BY SnapshotDate DESC
+                  LIMIT 1",
+                new { MaterialId = materialId, WarehouseId = warehouseId });
+        }
+
         public void BulkUpsert(IEnumerable<InventoryRecord> records)
         {
             using var conn = _connectionFactory.CreateConnection();

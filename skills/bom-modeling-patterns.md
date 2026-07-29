@@ -30,7 +30,7 @@ OpenBOM 最关键的架构决策之一：**物料定义**与**BOM 中的使用�
 - 螺栓的规格变了 → 只需改 Material 表一行
 - 但用量/位置/损耗率是每个 BOM 实例特有的 → 放在 BomNode 中
 
-**本项目对应**: [specification.md §4.1](../docs/reference/specification.md#41-业务表8-张)
+**本项目对应**: [specification.md §4.1](../rules/specification.md#41-业务表8-张)
 - `Materials` 表 = Reference
 - `BomStructures` 表 = Instance（`ParentMaterialId`, `ChildMaterialId`, `Quantity`, `Position`）
 

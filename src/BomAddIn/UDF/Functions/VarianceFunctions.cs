@@ -18,7 +18,7 @@ namespace BomAddIn.UDF.Functions
         /// 比较两个 BOM 版本的结构差异。
         /// </summary>
         [ExcelFunction(Name = "VARIANCECHECK", Description = "比较两个BOM版本的差异",
-            IsThreadSafe = false, IsVolatile = false)]
+            IsThreadSafe = true, IsVolatile = false)]
         public static object VarianceCheck(
             [ExcelArgument("物料编码 A")] string itemCodeA,
             [ExcelArgument("版本 A 日期")] object? asOfDateA = null,
@@ -74,7 +74,7 @@ namespace BomAddIn.UDF.Functions
         /// 检查物料 BOM 中所有节点的价格异常和结构预警。
         /// </summary>
         [ExcelFunction(Name = "ALERTCHECK", Description = "检查物料BOM预警状态（价格变化、数量异常）",
-            IsThreadSafe = false, IsVolatile = false)]
+            IsThreadSafe = true, IsVolatile = false)]
         public static object AlertCheck(
             [ExcelArgument("物料编码（可选）")] object? itemCode = null)
         {

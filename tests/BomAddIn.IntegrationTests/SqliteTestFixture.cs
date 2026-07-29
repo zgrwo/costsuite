@@ -3,6 +3,7 @@ using System.Data;
 using System.Data.SQLite;
 using BomAddIn.Data.Connection;
 using BomAddIn.Data.Migration;
+using Dapper;
 
 namespace BomAddIn.IntegrationTests;
 
@@ -19,15 +20,20 @@ public class SqliteTestFixture : IDbConnectionFactory, IDisposable
     static SqliteTestFixture()
     {
         // 注册 Dapper 枚举类型处理器，确保 TEXT 列 ↔ enum 正确映射
+        // TT-5 fix: 与 ServiceConfigurator.Configure() 保持一致，注册全部 5 个枚举处理器
+        Dapper.SqlMapper.AddTypeHandler(new BomAddIn.Infrastructure.Config.EnumStringTypeHandler<BomAddIn.Infrastructure.Models.Enums.UserRole>());
+        Dapper.SqlMapper.AddTypeHandler(new BomAddIn.Infrastructure.Config.EnumStringTypeHandler<BomAddIn.Infrastructure.Models.Enums.VersionState>());
         Dapper.SqlMapper.AddTypeHandler(new BomAddIn.Infrastructure.Config.EnumStringTypeHandler<BomAddIn.Infrastructure.Models.Enums.AuditAction>());
         Dapper.SqlMapper.AddTypeHandler(new BomAddIn.Infrastructure.Config.EnumStringTypeHandler<BomAddIn.Infrastructure.Models.Enums.SnapshotType>());
+        Dapper.SqlMapper.AddTypeHandler(new BomAddIn.Infrastructure.Config.EnumStringTypeHandler<BomAddIn.Infrastructure.Models.Enums.SyncStatus>());
     }
 
     public SqliteTestFixture()
     {
         // 使用临时文件数据库 — 比 :memory: 更可靠地跨连接共享
+        // TT-1 fix: Foreign Keys=True 与生产环境保持一致，确保测试能捕获 FK 违规
         _dbPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"bom_test_{Guid.NewGuid():N}.db");
-        var connStr = $"Data Source={_dbPath};Foreign Keys=False;";
+        var connStr = $"Data Source={_dbPath};Foreign Keys=True;";
 
         _sharedConnection = new SQLiteConnection(connStr);
         _sharedConnection.Open();
@@ -37,11 +43,11 @@ public class SqliteTestFixture : IDbConnectionFactory, IDisposable
         migrator.RunPendingMigrations();
     }
 
-    public string ConnectionString => $"Data Source={_dbPath};Foreign Keys=False;";
+    public string ConnectionString => $"Data Source={_dbPath};Foreign Keys=True;";
 
     public IDbConnection CreateConnection()
     {
-        var conn = new SQLiteConnection($"Data Source={_dbPath};Foreign Keys=False;");
+        var conn = new SQLiteConnection($"Data Source={_dbPath};Foreign Keys=True;");
         conn.Open();
         return conn;
     }
@@ -61,5 +67,38 @@ public class SqliteTestFixture : IDbConnectionFactory, IDisposable
         {
             // 忽略清理错误
         }
+    }
+
+    /// <summary>插入测试用前置物料，返回其 Id。FK=True 时 BomVersions/Prices 等表需要前置 Materials。</summary>
+    public long SeedMaterial(string code = "TEST-MAT", long? id = null)
+    {
+        using var conn = CreateConnection();
+        var matId = id ?? DateTime.UtcNow.Ticks % 1000000;
+        conn.Execute(
+            "INSERT OR IGNORE INTO Materials (Id, OrgId, Code, Name, Unit, IsActive) VALUES (@Id, 1, @Code, @Name, 'PCS', 1)",
+            new { Id = matId, Code = code, Name = $"Test Material {code}" });
+        return matId;
+    }
+
+    /// <summary>插入测试用前置供应商，返回其 Id。</summary>
+    public long SeedSupplier(string code = "TEST-SUP", long? id = null)
+    {
+        using var conn = CreateConnection();
+        var supId = id ?? DateTime.UtcNow.Ticks % 1000000 + 1;
+        conn.Execute(
+            "INSERT OR IGNORE INTO Suppliers (Id, OrgId, Code, Name) VALUES (@Id, 1, @Code, @Name)",
+            new { Id = supId, Code = code, Name = $"Test Supplier {code}" });
+        return supId;
+    }
+
+    /// <summary>插入测试用前置用户，返回其 Id。</summary>
+    public long SeedUser(string username = "testuser", long? id = null)
+    {
+        using var conn = CreateConnection();
+        var userId = id ?? DateTime.UtcNow.Ticks % 1000000 + 2;
+        conn.Execute(
+            "INSERT OR IGNORE INTO Users (Id, Username, PasswordHash, Role, OrgId, IsActive) VALUES (@Id, @Username, 'hash', 'Admin', 1, 1)",
+            new { Id = userId, Username = username });
+        return userId;
     }
 }

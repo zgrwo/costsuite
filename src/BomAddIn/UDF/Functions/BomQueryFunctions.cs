@@ -17,10 +17,11 @@ namespace BomAddIn.UDF.Functions
         /// =BOMEXPAND(itemCode, [asOfDate], [versionState])
         /// 展开指定物料的完整 BOM 结构，返回多层级扁平列表。
         /// </summary>
-        // TODO: Per spec §8.1, pure query functions should be IsThreadSafe = true.
-        // Currently false pending verification of Container.BeginScope() thread safety.
+        // spec §8.1: 纯查询函数标记 IsThreadSafe = true，允许 Excel 并行计算。
+        // 线程安全保证: Container.BeginScope() 每次创建独立 DI scope;
+        // BomAnalysisProvider 内部 lock 保护 DuckDB 连接; MemoryCacheProvider 线程安全。
         [ExcelFunction(Name = "BOMEXPAND", Description = "展开指定物料的完整BOM结构",
-            IsThreadSafe = false, IsVolatile = false)]
+            IsThreadSafe = true, IsVolatile = false)]
         public static object BomExpand(
             [ExcelArgument("物料编码")] string itemCode,
             [ExcelArgument("截止日期（默认今天）")] object? asOfDate = null,
@@ -40,10 +41,10 @@ namespace BomAddIn.UDF.Functions
 
                 // V1.0 限制: DuckDB ExpandBom 硬编码 VersionState='Released'。
                 // "Draft"/"Obsolete"/"All" 参数均不可达（Expand 仅返回 Released 节点）。
-                // 统一返回 #N/A 而非静默降级，避免用户误以为 All=Released。
+                // 返回 #VALUE! 表示参数值不受支持（区别于 #N/A = 数据不存在）。
                 // V1.1: BomAnalysisProvider.ExpandBom 接受 versionState 参数。
                 if (version != "Released")
-                    return ExcelError.ExcelErrorNA;
+                    return ExcelError.ExcelErrorValue;
 
                 if (nodes.Count == 0)
                     return ExcelError.ExcelErrorNA;
@@ -76,7 +77,7 @@ namespace BomAddIn.UDF.Functions
         /// 叶节点 = Quantity × UnitPrice; 中间节点 = 自身成本 + 所有子节点成本之和。
         /// </summary>
         [ExcelFunction(Name = "BOMCOST", Description = "计算物料汇总成本（自底向上汇总 Quantity×UnitPrice）",
-            IsThreadSafe = false, IsVolatile = false)]
+            IsThreadSafe = true, IsVolatile = false)]
         public static object BomCost(
             [ExcelArgument("物料编码")] string itemCode,
             [ExcelArgument("截止日期（默认今天）")] object? asOfDate = null)
@@ -90,17 +91,16 @@ namespace BomAddIn.UDF.Functions
                 using var scope = Container.BeginScope();
                 var service = scope.ServiceProvider.GetRequiredService<IBomService>();
 
-                // Verify item exists — empty means item not found
-                // NOTE: CalculateCost internally calls Expand again (cached after first call).
-                // Future optimization: return Nullable<double> from CalculateCost to avoid double Expand.
-                var nodes = service.Expand(itemCode, date);
-                if (nodes.Count == 0)
-                    return ExcelError.ExcelErrorNA;
-
+                // U-2 fix: 直接调用 CalculateCost（内部已包含 Expand + 缓存）。
+                // 仅当成本为 0 时用轻量主键查询区分“物料不存在”与“成本确实为 0”。
                 var cost = service.CalculateCost(itemCode, date);
 
                 if (cost == 0)
-                    return 0.0;  // 返回零成本（正常结果），物料存在但成本为 0
+                {
+                    var materialRepo = scope.ServiceProvider.GetRequiredService<BomAddIn.Data.Repositories.IMaterialRepository>();
+                    if (materialRepo.GetByCode(1, itemCode) == null)
+                        return ExcelError.ExcelErrorNA;
+                }
 
                 return cost;
             }

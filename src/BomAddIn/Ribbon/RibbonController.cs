@@ -88,6 +88,15 @@ namespace BomAddIn.Ribbon
                 using var scope = Services.CreateScope();
                 var syncService = scope.ServiceProvider.GetRequiredService<ISyncService>();
                 var userContext = scope.ServiceProvider.GetRequiredService<ICurrentUserContext>();
+
+                // S-1 fix: 未登录时提供明确提示，而非显示“权限不足”错误
+                if (!userContext.IsAuthenticated)
+                {
+                    MessageBox.Show("请先登录后再执行同步。\n\n当前以 Viewer 角色运行，无同步权限。",
+                        "BOM Suite — 未登录", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
+                }
+
                 var callerRole = userContext.CurrentRole;
                 var result = await syncService.SyncAllAsync(callerRole);
 

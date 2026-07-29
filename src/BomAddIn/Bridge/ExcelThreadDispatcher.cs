@@ -62,12 +62,12 @@ namespace BomAddIn.Bridge
             return result;
         }
 
-        public Task<T> RunOnExcelThreadAsync<T>(Func<T> action)
+        public async Task<T> RunOnExcelThreadAsync<T>(Func<T> action)
         {
             if (action == null) throw new ArgumentNullException(nameof(action));
 
             if (IsExcelMainThread)
-                return Task.FromResult(action());
+                return action();
 
             var tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
             ExcelAsyncUtil.QueueAsMacro(() =>
@@ -92,16 +92,20 @@ namespace BomAddIn.Bridge
                 }
             });
 
-            // 添加超时保护，避免后台线程无限等待
-            var timeoutTask = Task.Delay(30000);
-            return Task.WhenAny(tcs.Task, timeoutTask)
-                .ContinueWith(t =>
+            // T-2 fix: 使用 async/await 替代 ContinueWith，正确传播原始异常而非 AggregateException。
+            // 超时保护避免后台线程无限等待。
+            using (var cts = new System.Threading.CancellationTokenSource(TimeSpan.FromSeconds(30)))
+            using (cts.Token.Register(() => tcs.TrySetCanceled()))
+            {
+                try
                 {
-                    if (tcs.Task.IsCompleted)
-                        return tcs.Task.Result;
-                    tcs.TrySetCanceled();
+                    return await tcs.Task.ConfigureAwait(false);
+                }
+                catch (OperationCanceledException)
+                {
                     throw new TimeoutException("Excel COM 异步调用超时（30 秒）。Excel 主线程可能正忙或已断开。");
-                });
+                }
+            }
         }
     }
 }

@@ -17,6 +17,10 @@ public class AuditLogRepositoryTests : IClassFixture<SqliteTestFixture>
     {
         _fixture = fixture;
         _repo = new AuditLogRepository(fixture);
+        // FK=True: AuditLogs.UserId → Users(Id)，确保测试中使用的 UserId 存在
+        _fixture.SeedUser("audit-test-user", 1);
+        _fixture.SeedUser("audit-user-42", 42);
+        _fixture.SeedUser("audit-user-99", 99);
     }
 
     [Fact]

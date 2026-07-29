@@ -9,15 +9,17 @@ namespace BomAddIn.EventBus
     /// V1.0 简单实现: 基于 Dictionary + List 的同步发布。
     /// UI 订阅者自行通过 Dispatcher 封送回 UI 线程。
     ///
-    /// handler 使用 WeakReference 包裹，防止订阅者忘记退订导致内存泄漏。
-    /// 每次 Publish 时自动清理已回收的订阅。
+    /// 默认使用 WeakReference 包裹 handler，防止订阅者忘记退订导致内存泄漏。
+    /// ❗ 注意: Lambda 订阅者必须将委托保存为字段，否则 GC 后订阅静默失效。
+    /// 对于必须保持活跃的关键订阅（如 Dashboard），使用 SubscribeStrong。
     /// </summary>
     public class ExcelEventBus : IEventBus
     {
         private readonly Dictionary<Type, List<WeakReference<Delegate>>> _handlers = new();
+        private readonly Dictionary<Type, List<Delegate>> _strongHandlers = new();
         private readonly object _lock = new();
 
-        /// <summary>订阅事件</summary>
+        /// <summary>订阅事件（弱引用 — 订阅者必须保持委托存活，否则 GC 后静默失效）</summary>
         public void Subscribe<T>(Action<T> handler)
         {
             if (handler == null) throw new ArgumentNullException(nameof(handler));
@@ -29,6 +31,24 @@ namespace BomAddIn.EventBus
                     _handlers[typeof(T)] = list;
                 }
                 list.Add(new WeakReference<Delegate>(handler));
+            }
+        }
+
+        /// <summary>
+        /// 订阅事件（强引用 — 适用于必须保持活跃的关键订阅，如 Dashboard 刷新）。
+        /// 订阅者必须在适当时机调用 Unsubscribe 释放，否则会导致内存泄漏。
+        /// </summary>
+        public void SubscribeStrong<T>(Action<T> handler)
+        {
+            if (handler == null) throw new ArgumentNullException(nameof(handler));
+            lock (_lock)
+            {
+                if (!_strongHandlers.TryGetValue(typeof(T), out var list))
+                {
+                    list = new List<Delegate>();
+                    _strongHandlers[typeof(T)] = list;
+                }
+                list.Add(handler);
             }
         }
 
@@ -65,24 +85,26 @@ namespace BomAddIn.EventBus
             List<(int Index, Delegate Target)> handlers;
             lock (_lock)
             {
-                if (!_handlers.TryGetValue(typeof(T), out var list)) return;
-
-                // 快照 + 清理死引用：遍历所有 weak ref，只保留存活的
-                var snapshot = new List<Delegate>(list.Count);
-                for (int i = list.Count - 1; i >= 0; i--)
+                // 弱引用 handlers
+                var snapshot = new List<Delegate>();
+                if (_handlers.TryGetValue(typeof(T), out var list))
                 {
-                    if (list[i].TryGetTarget(out var target))
-                        snapshot.Add(target);
-                    else
-                        list.RemoveAt(i); // 清理已回收的订阅
+                    for (int i = list.Count - 1; i >= 0; i--)
+                    {
+                        if (list[i].TryGetTarget(out var target))
+                            snapshot.Add(target);
+                        else
+                            list.RemoveAt(i);
+                    }
+                    if (list.Count == 0)
+                        _handlers.Remove(typeof(T));
                 }
 
-                if (list.Count == 0)
-                {
-                    _handlers.Remove(typeof(T));
-                    return;
-                }
+                // AR-2 fix: 强引用 handlers 始终参与发布
+                if (_strongHandlers.TryGetValue(typeof(T), out var strongList))
+                    snapshot.AddRange(strongList);
 
+                if (snapshot.Count == 0) return;
                 handlers = snapshot.Select(d => (0, d)).ToList();
             }
 
@@ -94,7 +116,6 @@ namespace BomAddIn.EventBus
                 }
                 catch (Exception ex)
                 {
-                    // 记录 handler 异常但不影响其他订阅者 (code-review C-4)
                     BomAddIn.Infrastructure.Logging.AppLogger.Error(
                         $"handler for {typeof(T).Name} threw", ex, typeof(ExcelEventBus));
                 }
@@ -107,6 +128,7 @@ namespace BomAddIn.EventBus
             lock (_lock)
             {
                 _handlers.Clear();
+                _strongHandlers.Clear();
             }
         }
     }

@@ -13,6 +13,11 @@ using BomAddIn.Infrastructure.Models.Enums;
 namespace BomAddIn.Core.Services
 {
     /// <summary>BOM 服务 — DuckDB 展开 + 版本管理 + 审计 + 缓存</summary>
+    /// <remarks>
+    /// 架构注意 (A-1): 本服务直接管理 IDbConnection/事务以协调多仓储原子操作。
+    /// 理想方案是引入 Unit of Work 模式将连接管理下沉到 Data 层。
+    /// 当前方案在 net472 + SQLite 场景下实用且可靠，待 V2.0 重构时统一处理。
+    /// </remarks>
     public class BomService : IBomService
     {
         private readonly IBomNodeRepository _bomNodeRepository;

@@ -186,7 +186,8 @@ public static class Container
 [ExcelFunction(Name = "BOMEXPAND", IsThreadSafe = true)]
 public static object[,] BomExpand(string itemCode)
 {
-    var service = Container.Resolve<IBomService>();  // 通过定位器获取
+    using var scope = Container.BeginScope();  // 每次调用创建独立 scope
+    var service = scope.ServiceProvider.GetRequiredService<IBomService>();
     return service.Expand(itemCode).ToArray2D();
 }
 ```

@@ -19,7 +19,8 @@ Write-Host "══════════════════════�
 
 # ═══ 1. 编译检查 ═══
 Write-Host "`n[1/3] dotnet build..." -ForegroundColor White
-$buildResult = dotnet build "$repoRoot\BomAddIn.sln" --nologo -v q 2>&1
+# CI-4 fix: 显式指定 Debug 配置，确保 build 和 test 使用相同输出路径
+$buildResult = dotnet build "$repoRoot\BomAddIn.sln" --configuration Debug --nologo -v q 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ 编译失败，提交中止。" -ForegroundColor Red
     Write-Host $buildResult
@@ -43,7 +44,7 @@ try {
 
 # ═══ 3. 全部测试 ═══
 Write-Host "`n[3/3] dotnet test..." -ForegroundColor White
-$testResult = dotnet test "$repoRoot\BomAddIn.sln" --nologo --no-build -v q 2>&1
+$testResult = dotnet test "$repoRoot\BomAddIn.sln" --configuration Debug --nologo --no-build -v q 2>&1
 if ($LASTEXITCODE -ne 0) {
     Write-Host "❌ 测试失败，提交中止。" -ForegroundColor Red
     Write-Host $testResult

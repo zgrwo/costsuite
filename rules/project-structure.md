@@ -342,30 +342,39 @@ BomAddIn.Infrastructure/
 
 ```
 tests/
-├── BomAddIn.UnitTests/                       # 119 单元测试（扁平结构）
+├── BomAddIn.UnitTests/                       # 24 单元测试文件（扁平结构）
 │   ├── AuthServiceTests.cs
-│   ├── BomServiceTests.cs
-│   ├── VarianceServiceTests.cs
+│   ├── AuthorizationServiceTests.cs
+│   ├── BomServiceTests.cs / BomServiceEdgeCaseTests.cs
+│   ├── VarianceServiceTests.cs / VarianceCalculatorTests.cs
 │   ├── SyncServiceTests.cs
-│   ├── ApprovalServiceTests.cs
+│   ├── ApprovalServiceTests.cs / ApprovalServiceEdgeCaseTests.cs
 │   ├── AuditServiceTests.cs
 │   ├── SnapshotServiceTests.cs
 │   ├── AlertEvaluatorTests.cs
-│   ├── EdgeCaseTests.cs
-│   ├── RepositoryTests.cs
-│   ├── SeedDataTests.cs
-│   ├── EncryptionProviderTests.cs
-│   └── PasswordHasherTests.cs
-├── BomAddIn.IntegrationTests/                # 28 集成测试
-│   ├── Data/
-│   │   └── RepositoryIntegrationTests.cs
-│   └── Fixtures/
-│       └── SqliteTestFixture.cs
-├── BomAddIn.ThreadingTests/                  # 空壳（Sprint 0 探针待实现）
-│   └── (无测试 .cs 文件)
+│   ├── BomQueryFunctionsTests.cs / DataQueryFunctionsTests.cs
+│   ├── VarianceFunctionsTests.cs / SystemFunctionsTests.cs
+│   ├── BomExcelImporterTests.cs / BomClosureTableTests.cs
+│   ├── AesEncryptionProviderTests.cs / NetworkMonitorTests.cs
+│   ├── EdgeCaseTests.cs / LargeDatasetTests.cs
+│   └── BomAnalysisProviderConcurrencyTests.cs
+├── BomAddIn.IntegrationTests/                # 11 集成测试文件
+│   ├── MaterialRepositoryTests.cs
+│   ├── BomNodeRepositoryTests.cs
+│   ├── BomVersionRepositoryTests.cs
+│   ├── PriceRecordRepositoryTests.cs
+│   ├── AuditLogRepositoryTests.cs
+│   ├── UserRepositoryTests.cs
+│   ├── ConfigServiceTests.cs / MigrationTests.cs
+│   ├── DuckDBCompatibilityTests.cs / SeedDataGeneratorTests.cs
+│   └── SqliteTestFixture.cs
+├── BomAddIn.ThreadingTests/                  # 线程安全压力测试
+│   ├── ThreadSafetyTests.cs
+│   ├── ThreadStressTests.cs
+│   └── UdfParameterParserTests.cs
 └── BomAddIn.PerformanceTests/
     ├── BomExpansionBenchmarks.cs
-    └── VarianceCalculationBenchmarks.cs
+    └── Program.cs
 ```
 
 ### 4.6 `database/` — 数据库文件
@@ -406,7 +415,7 @@ database/
 
 ---
 
-### 4.7 `build/` — 构建与打包
+### 4.8 `build/` — 构建与打包
 
 ```
 build/
@@ -416,7 +425,6 @@ build/
 │   └── BomAddIn.nuspec                       # NuGet 包描述（可选）
 └── scripts/
     ├── build.ps1                             # 构建 + 运行测试
-    ├── sign.ps1                              # Authenticode 签名
     └── sign.ps1                              # Authenticode 签名
 ```
 
@@ -588,7 +596,7 @@ user.config
 | **表示层 (UI)** | `BomAddIn` | `UI/Ribbon/`, `UI/TaskPane/`, `UI/Dashboard/` |
 | **桥接层 (Bridge)** | `BomAddIn` | `Bridge/` |
 | **业务逻辑层 (BLL)** | `BomAddIn.Core` | `Services/` |
-| **差异计算引擎** | `BomAddIn.Core` | `Engine/` |
+| **差异计算引擎** | `BomAddIn.Core` | `Services/`（VarianceCalculator, AlertEvaluator） |
 | **数据访问层 (DAL)** | `BomAddIn.Data` | `Repositories/`, `Caching/` |
 | **基础设施层** | `BomAddIn.Infrastructure` | 全部 |
 

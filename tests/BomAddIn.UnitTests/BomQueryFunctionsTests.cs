@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using BomAddIn.Core.Services;
+using BomAddIn.Data.Repositories;
 using BomAddIn.Infrastructure.Models;
 using BomAddIn.UDF;
 using BomAddIn.UDF.Functions;
@@ -20,12 +21,14 @@ namespace BomAddIn.UnitTests;
 public class BomQueryFunctionsTests : IDisposable
 {
     private readonly Mock<IBomService> _bomServiceMock = new();
+    private readonly Mock<IMaterialRepository> _materialRepoMock = new();
     private readonly ServiceProvider _provider;
 
     public BomQueryFunctionsTests()
     {
         var services = new ServiceCollection();
         services.AddSingleton(_bomServiceMock.Object);
+        services.AddScoped(_ => _materialRepoMock.Object);
         _provider = services.BuildServiceProvider();
         Container.Initialize(_provider);
     }
@@ -137,8 +140,8 @@ public class BomQueryFunctionsTests : IDisposable
         // Act
         var result = BomQueryFunctions.BomExpand("MAT-001", versionState: "Draft");
 
-        // Assert — version != "Released" returns NA regardless of nodes returned
-        result.Should().Be(ExcelError.ExcelErrorNA);
+        // Assert — version != "Released" returns #VALUE! (unsupported parameter, distinct from #N/A = not found)
+        result.Should().Be(ExcelError.ExcelErrorValue);
     }
 
     [Fact]
@@ -183,17 +186,20 @@ public class BomQueryFunctionsTests : IDisposable
     [Fact]
     public void BomCost_ItemNotFound_ReturnsNA()
     {
-        // Arrange — Expand returns empty = item not found
+        // Arrange — CalculateCost returns 0 (item not found internally),
+        // and MaterialRepository confirms item does not exist
         _bomServiceMock
-            .Setup(s => s.Expand("MAT-001", It.IsAny<DateTime?>()))
-            .Returns(new List<BomExpandedNode>());
+            .Setup(s => s.CalculateCost("MAT-001", It.IsAny<DateTime?>()))
+            .Returns(0.0);
+        _materialRepoMock
+            .Setup(r => r.GetByCode(1, "MAT-001"))
+            .Returns((Material?)null);
 
         // Act
         var result = BomQueryFunctions.BomCost("MAT-001");
 
         // Assert
         result.Should().Be(ExcelError.ExcelErrorNA);
-        _bomServiceMock.Verify(s => s.CalculateCost(It.IsAny<string>(), It.IsAny<DateTime?>()), Times.Never);
     }
 
     [Fact]
@@ -222,16 +228,12 @@ public class BomQueryFunctionsTests : IDisposable
     public void BomCost_ZeroCost_ReturnsZero()
     {
         // Arrange — valid item but cost is exactly 0: returns 0.0 (not NA)
-        var nodes = new List<BomExpandedNode>
-        {
-            new() { ItemCode = "MAT-001", Level = 0 },
-        };
-        _bomServiceMock
-            .Setup(s => s.Expand("MAT-001", It.IsAny<DateTime?>()))
-            .Returns(nodes);
         _bomServiceMock
             .Setup(s => s.CalculateCost("MAT-001", It.IsAny<DateTime?>()))
             .Returns(0.0);
+        _materialRepoMock
+            .Setup(r => r.GetByCode(1, "MAT-001"))
+            .Returns(new Material { Id = 1, Code = "MAT-001" });
 
         // Act
         var result = BomQueryFunctions.BomCost("MAT-001");
@@ -243,9 +245,9 @@ public class BomQueryFunctionsTests : IDisposable
     [Fact]
     public void BomCost_Exception_ReturnsExcelErrorValue()
     {
-        // Arrange
+        // Arrange — CalculateCost throws (U-2 fix: 现在直接调用 CalculateCost)
         _bomServiceMock
-            .Setup(s => s.Expand("MAT-001", It.IsAny<DateTime?>()))
+            .Setup(s => s.CalculateCost("MAT-001", It.IsAny<DateTime?>()))
             .Throws(new InvalidOperationException("Database connection failed"));
 
         // Act

@@ -105,7 +105,8 @@ public static class ExcelThreadDispatcher
 public static double BomCost(string itemCode, DateTime? asOfDate)
 {
     // 通过 DI 获取服务（服务本身必须是线程安全的）
-    var service = Container.Resolve<IBomService>();
+    using var scope = Container.BeginScope();
+    var service = scope.ServiceProvider.GetRequiredService<IBomService>();
     return service.CalculateCost(itemCode, asOfDate ?? DateTime.Today);
 }
 
@@ -133,7 +134,8 @@ public static object PriceLookup(string itemCode, string supplierCode)
         () =>
         {
             // 这里是后台线程 — 安全做 IO、DB 查询
-            var service = Container.Resolve<IPriceService>();
+            using var scope = Container.BeginScope();
+            var service = scope.ServiceProvider.GetRequiredService<IPriceService>();
             var result = service.GetPrice(itemCode, supplierCode);
 
             // 返回简单值（不要在这里返回 COM Range）

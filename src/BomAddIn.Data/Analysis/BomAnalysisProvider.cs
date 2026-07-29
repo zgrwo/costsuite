@@ -29,6 +29,7 @@ namespace BomAddIn.Data.Analysis
             lock (_lock)
             {
                 if (_isLoaded) return;
+                // R-1 fix: 首次加载失败后 _duckDb=null，下次调用时允许重试（而非永久失败）
                 LoadFromSqlite(sqliteConn);
                 _isLoaded = true;
             }
@@ -279,9 +280,8 @@ namespace BomAddIn.Data.Analysis
                     var count = Convert.ToInt64(checkCmd.ExecuteScalar());
                     if (count == 0)
                     {
-                        // Closure Table 为空 — fallback 到 BFS
-                        // 注意：ExpandBom 内部也加 lock，此处需先释放（使用 Monitor 重入）
-                        // 由于 lock 是可重入的（同一线程），直接调用即可
+                        // Closure Table 为空 — fallback 到 BFS。
+                        // 安全性: C# lock (Monitor) 是可重入的，同一线程再次获取同一锁不会死锁。
                         return ExpandBom(itemCode, asOfDate);
                     }
                 }

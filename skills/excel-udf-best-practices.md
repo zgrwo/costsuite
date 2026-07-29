@@ -48,8 +48,9 @@ public static object[,] BomExpand(
     DateTime? date = ParseDateArg(asOfDate) ?? DateTime.Today;
     var state = ParseVersionState(versionState);
 
-    // 委托给 BLL
-    var service = Container.Resolve<IBomService>();
+    // 委托给 BLL（每次 UDF 调用创建独立 scope，确保线程安全）
+    using var scope = Container.BeginScope();
+    var service = scope.ServiceProvider.GetRequiredService<IBomService>();
     return service.Expand(itemCode, date, state).ToArray2D();
 }
 
@@ -73,7 +74,8 @@ public static class ArrayFormulaHelper
 
     static ArrayFormulaHelper()
     {
-        _adapter = Container.Resolve<IVersionAdapter>();
+        // 通过 BeginScope 获取（Singleton 服务也可直接从 ServiceProvider 解析）
+        _adapter = BomAddInStartup.ServiceProvider.GetRequiredService<IVersionAdapter>();
     }
 
     /// <summary>
@@ -126,8 +128,8 @@ public static object PriceLookup(string itemCode, string supplierCode)
         if (string.IsNullOrWhiteSpace(itemCode))
             return ExcelError.ExcelErrorNA;  // #N/A → "物料编码为空"
 
-        var service = Container.Resolve<IPriceService>();
-        var price = service.GetPrice(itemCode, supplierCode);
+        var service = Container.ResolveWithScope<IPriceService>();
+        var price = service.Service.GetPrice(itemCode, supplierCode);
 
         if (price == null)
             return ExcelError.ExcelErrorNA;  // #N/A → "未找到价格"
@@ -172,7 +174,7 @@ public static double BomCost(string itemCode, DateTime? asOfDate) { ... }
 public static string SyncStatus()
 {
     // 每次重算都会调用 — 但开销小（读一个状态字段）
-    return Container.Resolve<ISyncService>().GetCurrentStatus();
+    return Container.ResolveWithScope<ISyncService>().Service.GetCurrentStatus();
 }
 ```
 
@@ -190,12 +192,13 @@ public static string SyncStatus()
 [ExcelFunction(Name = "PRICELOOKUP", IsThreadSafe = true)]
 public static object PriceLookup(string itemCode, string supplierCode)
 {
-    var cache = Container.Resolve<ICacheProvider>();
+    var cache = Container.ResolveWithScope<ICacheProvider>();
     var key = $"PRICELOOKUP:{itemCode}:{supplierCode}";
 
-    return cache.GetOrSet(key, TimeSpan.FromMinutes(5), () =>
+    return cache.Service.GetOrSet(key, TimeSpan.FromMinutes(5), () =>
     {
-        var service = Container.Resolve<IPriceService>();
+        using var scope = Container.BeginScope();
+        var service = scope.ServiceProvider.GetRequiredService<IPriceService>();
         return service.GetPrice(itemCode, supplierCode);
     });
 }

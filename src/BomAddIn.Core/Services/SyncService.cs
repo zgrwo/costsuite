@@ -15,6 +15,10 @@ using BomAddIn.Data.Sync;
 namespace BomAddIn.Core.Services
 {
     /// <summary>同步服务 — 简单重试 + 并行拉取</summary>
+    /// <remarks>
+    /// 架构注意 (A-2): 同 BomService，本服务直接管理 IDbConnection/事务以协调多表批量写入。
+    /// 待 V2.0 引入 Unit of Work 后统一重构。
+    /// </remarks>
     public class SyncService : ISyncService
     {
         private readonly IErpAdapter _erpAdapter;
@@ -32,7 +36,10 @@ namespace BomAddIn.Core.Services
 
         // 简单重试：指数退避 (2s, 4s, 8s) + 抖动，最多 3 次
         private const int MaxRetries = 3;
-        private static readonly ThreadLocal<Random> RetryRng = new(() => new Random());
+        // T-4 fix: ThreadLocal<Random> 在 async 方法中不可靠（await 后可能切换线程）。
+        // 改用静态 Random + lock，重试延迟计算非热路径，锁开销可忽略。
+        private static readonly Random RetryRng = new();
+        private static readonly object RngLock = new();
 
         private static async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> action)
         {
@@ -42,8 +49,10 @@ namespace BomAddIn.Core.Services
                 catch (InvalidOperationException) { throw; } // 不重试业务逻辑错误
                 catch (Exception ex) when (attempt < MaxRetries)
                 {
+                    int jitter;
+                    lock (RngLock) { jitter = RetryRng.Next(0, 1000); }
                     var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt))
-                              + TimeSpan.FromMilliseconds(RetryRng.Value!.Next(0, 1000));
+                              + TimeSpan.FromMilliseconds(jitter);
                     AppLogger.Warn($"重试 {attempt}/{MaxRetries}，等待 {delay.TotalSeconds:F1}s: {ex.Message}", typeof(SyncService));
                     await Task.Delay(delay).ConfigureAwait(false);
                 }
@@ -58,8 +67,10 @@ namespace BomAddIn.Core.Services
                 catch (InvalidOperationException) { throw; }
                 catch (Exception ex) when (attempt < MaxRetries)
                 {
+                    int jitter;
+                    lock (RngLock) { jitter = RetryRng.Next(0, 1000); }
                     var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt))
-                              + TimeSpan.FromMilliseconds(RetryRng.Value!.Next(0, 1000));
+                              + TimeSpan.FromMilliseconds(jitter);
                     AppLogger.Warn($"重试 {attempt}/{MaxRetries}，等待 {delay.TotalSeconds:F1}s: {ex.Message}", typeof(SyncService));
                     await Task.Delay(delay).ConfigureAwait(false);
                 }

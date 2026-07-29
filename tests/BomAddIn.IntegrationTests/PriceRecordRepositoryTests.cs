@@ -18,6 +18,9 @@ public class PriceRecordRepositoryTests : IClassFixture<SqliteTestFixture>
     {
         _fixture = fixture;
         _repo = new PriceRecordRepository(fixture);
+        // FK=True: Prices.SupplierId → Suppliers(Id)，确保 SupplierId=1,2 存在
+        _fixture.SeedSupplier("DEFAULT-SUP", 1);
+        _fixture.SeedSupplier("DEFAULT-SUP-2", 2);
     }
 
     private long CreateMaterial()

@@ -23,15 +23,21 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
     {
         _fixture = fixture;
         _repo = new BomVersionRepository(fixture);
+        // FK=True: BomVersions.ApprovedBy → Users(Id)，确保 approvedBy 用户存在
+        _fixture.SeedUser("approver-42", 42);
+        _fixture.SeedUser("approver-99", 99);
     }
 
     private static long NextBomId() => System.Threading.Interlocked.Increment(ref _bomIdCounter) + 1000L;
 
     private BomVersion CreateVersion(long? bomId = null, int versionNumber = 1, VersionState state = VersionState.Draft)
     {
+        var actualBomId = bomId ?? NextBomId();
+        // FK=True: BomVersions.BomId → Materials(Id)，必须先插入前置物料
+        _fixture.SeedMaterial($"MAT-FK-{actualBomId}", actualBomId);
         var version = new BomVersion
         {
-            BomId = bomId ?? NextBomId(),
+            BomId = actualBomId,
             VersionNumber = versionNumber,
             State = state,
             CreatedAt = DateTime.UtcNow
@@ -50,9 +56,11 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
     [Fact]
     public void Add_WithTransaction_ShouldInsertWithinTransaction()
     {
+        var bomId = NextBomId();
+        _fixture.SeedMaterial($"MAT-TX-{bomId}", bomId);
+
         using var conn = _fixture.CreateConnection();
         using var tx = conn.BeginTransaction();
-        var bomId = NextBomId();
 
         var v1 = new BomVersion { BomId = bomId, VersionNumber = 1, State = VersionState.Draft, CreatedAt = DateTime.UtcNow };
         _repo.Add(v1, conn, tx);

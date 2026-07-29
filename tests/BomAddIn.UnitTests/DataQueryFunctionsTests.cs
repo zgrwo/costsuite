@@ -155,7 +155,7 @@ public class DataQueryFunctionsTests : IDisposable
 
         // Assert
         result.Should().Be(ExcelError.ExcelErrorNA);
-        _inventoryRepoMock.Verify(r => r.GetSnapshot(It.IsAny<long>(), It.IsAny<DateTime>()), Times.Never);
+        _inventoryRepoMock.Verify(r => r.GetLatestByMaterialAndWarehouse(It.IsAny<long>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -166,13 +166,10 @@ public class DataQueryFunctionsTests : IDisposable
         _materialRepoMock
             .Setup(r => r.GetByCode(DefaultOrgId, "MAT-001"))
             .Returns(material);
-        // Return inventory for a different warehouse — filter in UDF produces no match
+        // No inventory for warehouse "MAIN" — returns null
         _inventoryRepoMock
-            .Setup(r => r.GetSnapshot(10, It.IsAny<DateTime>()))
-            .Returns(new List<InventoryRecord>
-            {
-                new() { MaterialId = 10, WarehouseId = "WH-OTHER", Quantity = 500, SnapshotDate = DateTime.Today },
-            });
+            .Setup(r => r.GetLatestByMaterialAndWarehouse(10, "MAIN"))
+            .Returns((InventoryRecord?)null);
 
         // Act (default warehouse = "MAIN")
         var result = DataQueryFunctions.InventoryQty("MAT-001");
@@ -190,11 +187,8 @@ public class DataQueryFunctionsTests : IDisposable
             .Setup(r => r.GetByCode(DefaultOrgId, "MAT-001"))
             .Returns(material);
         _inventoryRepoMock
-            .Setup(r => r.GetSnapshot(10, It.IsAny<DateTime>()))
-            .Returns(new List<InventoryRecord>
-            {
-                new() { MaterialId = 10, WarehouseId = "MAIN", Quantity = 250, SnapshotDate = DateTime.Today },
-            });
+            .Setup(r => r.GetLatestByMaterialAndWarehouse(10, "MAIN"))
+            .Returns(new InventoryRecord { MaterialId = 10, WarehouseId = "MAIN", Quantity = 250, SnapshotDate = DateTime.Today });
 
         // Act
         var result = DataQueryFunctions.InventoryQty("MAT-001");
@@ -257,7 +251,7 @@ public class DataQueryFunctionsTests : IDisposable
             .Setup(r => r.GetByCode(DefaultOrgId, "MAT-001"))
             .Returns(material);
         _orderRepoMock
-            .Setup(r => r.GetByMaterialDue(20, DateTime.MaxValue))
+            .Setup(r => r.GetByMaterialDue(20, null))
             .Returns(new List<OrderRecord>());
 
         // Act
@@ -276,7 +270,7 @@ public class DataQueryFunctionsTests : IDisposable
             .Setup(r => r.GetByCode(DefaultOrgId, "MAT-001"))
             .Returns(material);
         _orderRepoMock
-            .Setup(r => r.GetByMaterialDue(20, DateTime.MaxValue))
+            .Setup(r => r.GetByMaterialDue(20, null))
             .Returns(new List<OrderRecord>
             {
                 new() { MaterialId = 20, OrderQty = 100, DueDate = DateTime.Today.AddDays(7) },

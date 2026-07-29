@@ -30,10 +30,12 @@ namespace BomAddIn.Dashboard
             }
 
             // 启动独立 STA 线程
+            // T-3 设计决策: IsBackground=true 确保 Excel 进程退出时 WPF 线程自动终止，
+            // 不会残留为孤儿进程。若 Excel 异常崩溃，未完成的 Task.Run 由 catch 保护。
             _wpfThread = new Thread(RunWpfApplication)
             {
                 Name = "BomAddIn.Dashboard",
-                IsBackground = true // Excel 退出时自动终止
+                IsBackground = true
             };
             _wpfThread.SetApartmentState(ApartmentState.STA);
             _wpfThread.Start();
