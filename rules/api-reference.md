@@ -140,32 +140,32 @@
 ### 3.3 PRICELOOKUP
 
 ```
-=PRICELOOKUP(itemCode, supplierCode, [asOfDate])
+=PRICELOOKUP(itemCode, [supplierCode], [asOfDate])
 ```
 
-**查询指定物料从指定供应商的最新单价。**
+**查询指定物料的最新单价。**
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|:--:|--------|------|
 | `itemCode` | string | ✅ | — | 物料编码 |
-| `supplierCode` | string | ✅ | — | 供应商编码 |
-| `asOfDate` | date | ❌ | 今天 | 价格查询日期 |
+| `supplierCode` | string | ❌ | 任意供应商 | 供应商编码（V1.0 未消费，待 V1.1 实现供应商过滤） |
+| `asOfDate` | date | ❌ | 今天 | 价格查询日期（V1.0 未消费，始终返回最新价格） |
 
-**返回值**: `double` — 单价
+**返回值**: `double` — 单价（保留 4 位小数）
 
 **示例**:
 
 ```
-=PRICELOOKUP("MAT-001", "SUP-HK-01")          → 12.50
-=PRICELOOKUP("MAT-001", "SUP-HK-01", TODAY()) → 12.50
+=PRICELOOKUP("MAT-001")                         → 12.50（任意供应商最新价）
+=PRICELOOKUP("MAT-001", "SUP-HK-01")            → 12.50（V1.0 同上行，供应商过滤待 V1.1）
 ```
 
 **错误**:
 
 | 条件 | 返回值 |
 |------|--------|
-| 物料或供应商不存在 | `#N/A` |
-| 该供应商无此物料的价格 | `#N/A` |
+| 物料不存在 | `#N/A` |
+| 该物料无任何价格记录 | `#N/A` |
 
 ---
 
@@ -180,14 +180,14 @@
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|:--:|--------|------|
 | `itemCode` | string | ✅ | — | 物料编码 |
-| `warehouseId` | string | ❌ | 全部仓库汇总 | 指定仓库编码 |
+| `warehouseId` | string | ❌ | `"MAIN"` | 仓库编码（默认查询 MAIN 仓） |
 
 **返回值**: `double` — 库存数量
 
 **示例**:
 
 ```
-=INVENTORYQTY("MAT-001")                      → 5000（所有仓库合计）
+=INVENTORYQTY("MAT-001")                      → 5000（MAIN 仓库库存）
 =INVENTORYQTY("MAT-001", "WH-SH-01")          → 1200（仅上海仓）
 ```
 
@@ -212,16 +212,16 @@
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|:--:|--------|------|
 | `itemCodeA` | string | ✅ | — | 基准物料编码 |
-| `dateA` | date/string | ❌ | TODAY() | 基准 BOM 日期（默认今天） |
+| `dateA` | date/string | ❌ | TODAY()-3个月 | 基准 BOM 日期（默认 3 个月前，确保能看到差异） |
 | `itemCodeB` | string | ❌ | =itemCodeA | 对比物料编码（不填则与自身对比） |
-| `dateB` | date/string | ❌ | TODAY()-1 | 对比 BOM 日期（默认昨天，用于时间点对比） |
+| `dateB` | date/string | ❌ | TODAY() | 对比 BOM 日期（默认今天） |
 
 **返回值**: 二维数组（表头: NodeCode, ChangeType, Dimension, OldValue, NewValue）
 
 **示例**:
 
 ```
-=VARIANCECHECK("MAT-001")                                    → 默认: 今天 vs 昨天（时间点对比）
+=VARIANCECHECK("MAT-001")                                    → 默认: 3个月前 vs 今天（时间点对比）
 =VARIANCECHECK("MAT-001", "2026-06-01", "MAT-001", "2026-07-01") → 同物料两时间点对比（需显式指定 itemCodeB）
 =VARIANCECHECK("MAT-001", TODAY(), "MAT-002", TODAY())        → 两物料同日期交叉对比
 ```
@@ -242,7 +242,9 @@
 |------|------|:--:|--------|------|
 | `itemCode` | string | ❌ | 全部物料 | 物料编码（不填则检查全部） |
 
-**返回值**: 二维数组（表头: Severity, Message, Rule, NodeCode）或 `"No alerts"` 字符串
+**返回值**: 二维数组（表头: Severity, Message, Rule, NodeCode）或 `#N/A`（无预警时）
+
+> **V1.0 限制**: 无参数调用 `=ALERTCHECK()` 返回 `#N/A`（全物料预警遍历待 V2.0 实现）。
 
 **预警规则**:
 
@@ -271,20 +273,25 @@
 =ORDERSTATUS(itemCode)
 ```
 
-**查询指定物料的最新采购订单状态。**
+**查询指定物料的未完成订单总数量。**
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|:--:|------|
 | `itemCode` | string | ✅ | 物料编码 |
 
-**返回值**: `string`
+**返回值**: `double` — 未完成订单的 OrderQty 总和
 
-| 值 | 含义 |
+| 场景 | 返回值 |
 |----|------|
-| `"InStock"` | 有库存，无在途订单 |
-| `"OnOrder: {n}"` | 有 {n} 个在途采购订单 |
-| `"Shortage: {n}"` | 缺货 {n} 件，无在途订单 |
-| `"N/A"` | 无数据 |
+| 有未完成订单 | 订单数量总和（如 `300`） |
+| 无未完成订单 | `#N/A` |
+| 物料不存在 | `#N/A` |
+
+**示例**:
+
+```
+=ORDERSTATUS("MAT-001")                         → 300（未完成订单总量）
+```
 
 ---
 
@@ -300,10 +307,10 @@
 
 | 值 | 含义 |
 |----|------|
-| `"Never synced"` | 从未执行过数据同步 |
-| `"Synced Xm ago"` | 最近同步在 X 分钟前（<1 小时） |
-| `"Synced X.Xh ago"` | 最近同步在 X.X 小时前（<24 小时） |
-| `"Synced yyyy-MM-dd HH:mm"` | 最近同步的具体时间（≥24 小时前） |
+| `"从未同步"` | 从未执行过数据同步 |
+| `"X 分钟前同步"` | 最近同步在 X 分钟前（<1 小时） |
+| `"X.X 小时前同步"` | 最近同步在 X.X 小时前（<24 小时） |
+| `"上次同步: yyyy-MM-dd HH:mm"` | 最近同步的具体时间（≥24 小时前） |
 | `#VALUE!` | 查询失败（数据库不可用等） |
 
 > **注意**: V1.1 版本 SYNCSTATUS 仅返回同步时间戳，不含在线/离线状态判断。

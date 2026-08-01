@@ -119,12 +119,22 @@ namespace BomAddIn.Data.Analysis
 
         public List<BomExpandedNode> ExpandBom(string itemCode, DateTime? asOfDate = null)
         {
-            var date = (asOfDate ?? DateTime.Today).ToString("yyyy-MM-dd");
-
             lock (_lock)
             {
-                if (_duckDb == null)
-                    throw new InvalidOperationException("DuckDB 未初始化。请先调用 LoadFromSqlite()。");
+                return ExpandBomInternal(itemCode, asOfDate);
+            }
+        }
+
+        /// <summary>
+        /// 内部无锁 BFS 展开 — 调用方必须已持有 _lock。
+        /// F-09 fix: 提取为独立方法，避免 ExpandBomViaClosure 在 lock 内调用 ExpandBom 的可重入锁模式。
+        /// </summary>
+        private List<BomExpandedNode> ExpandBomInternal(string itemCode, DateTime? asOfDate = null)
+        {
+            var date = (asOfDate ?? DateTime.Today).ToString("yyyy-MM-dd");
+
+            if (_duckDb == null)
+                throw new InvalidOperationException("DuckDB 未初始化。请先调用 LoadFromSqlite()。");
 
                 // H-25: 迭代 BFS 展开 + 全局 HashSet 去重。
                 // 替代递归 CTE 的 list_contains/Path 方案，避免 DAG 中枚举所有路径的指数爆炸。
@@ -263,7 +273,6 @@ namespace BomAddIn.Data.Analysis
                 }
 
                 return results;
-            }
         }
 
         public List<BomExpandedNode> ExpandBomViaClosure(string itemCode, DateTime? asOfDate = null)
@@ -281,14 +290,14 @@ namespace BomAddIn.Data.Analysis
                     if (count == 0)
                     {
                         // Closure Table 为空 — fallback 到 BFS。
-                        // 安全性: C# lock (Monitor) 是可重入的，同一线程再次获取同一锁不会死锁。
-                        return ExpandBom(itemCode, asOfDate);
+                        // F-09 fix: 调用无锁内部方法，避免可重入锁模式。
+                        return ExpandBomInternal(itemCode, asOfDate);
                     }
                 }
 
                 // Closure Table 不含时间维度 — 非当日查询 fallback 到 BFS（BFS 有完整的 ValidFrom/ValidTo 过滤）
                 if (asOfDate.HasValue && asOfDate.Value.Date != DateTime.Today)
-                    return ExpandBom(itemCode, asOfDate);
+                    return ExpandBomInternal(itemCode, asOfDate);
 
                 var results = new List<BomExpandedNode>();
 

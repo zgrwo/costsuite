@@ -13,6 +13,9 @@ namespace BomAddIn.UDF.Functions
 {
     public static class BomQueryFunctions
     {
+        // V1.0 默认 OrgId=1，多组织场景需改为可配置 (与 DataQueryFunctions.DefaultOrgId 对齐)
+        private const long DefaultOrgId = 1;
+
         /// <summary>
         /// =BOMEXPAND(itemCode, [asOfDate], [versionState])
         /// 展开指定物料的完整 BOM 结构，返回多层级扁平列表。
@@ -35,16 +38,15 @@ namespace BomAddIn.UDF.Functions
                 var date = UdfParameterParser.ParseDateArg(asOfDate) ?? DateTime.Today;
                 var version = UdfParameterParser.ParseVersionState(versionState as string);
 
+                // F-01 fix: 版本检查前移 — 非 Released 参数在 V1.0 不可达，
+                // 提前返回避免触发昂贵的 DuckDB BOM 展开后再丢弃结果。
+                // V1.1: BomAnalysisProvider.ExpandBom 接受 versionState 参数后移除此限制。
+                if (version != "Released")
+                    return ExcelError.ExcelErrorValue;
+
                 using var scope = Container.BeginScope();
                 var service = scope.ServiceProvider.GetRequiredService<IBomService>();
                 var nodes = service.Expand(itemCode, date);
-
-                // V1.0 限制: DuckDB ExpandBom 硬编码 VersionState='Released'。
-                // "Draft"/"Obsolete"/"All" 参数均不可达（Expand 仅返回 Released 节点）。
-                // 返回 #VALUE! 表示参数值不受支持（区别于 #N/A = 数据不存在）。
-                // V1.1: BomAnalysisProvider.ExpandBom 接受 versionState 参数。
-                if (version != "Released")
-                    return ExcelError.ExcelErrorValue;
 
                 if (nodes.Count == 0)
                     return ExcelError.ExcelErrorNA;
@@ -98,7 +100,7 @@ namespace BomAddIn.UDF.Functions
                 if (cost == 0)
                 {
                     var materialRepo = scope.ServiceProvider.GetRequiredService<BomAddIn.Data.Repositories.IMaterialRepository>();
-                    if (materialRepo.GetByCode(1, itemCode) == null)
+                    if (materialRepo.GetByCode(DefaultOrgId, itemCode) == null)
                         return ExcelError.ExcelErrorNA;
                 }
 

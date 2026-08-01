@@ -8,6 +8,8 @@ on:
   workflow_dispatch:
 
 env:
+  # F-10: .NET 8 SDK 用于构建 net472 + netstandard2.0 目标。
+  # windows-latest 提供 .NET Framework 参考程序集，无需单独安装 targeting pack。
   DOTNET_VERSION: 8.0.x
   CONFIGURATION: Release
 

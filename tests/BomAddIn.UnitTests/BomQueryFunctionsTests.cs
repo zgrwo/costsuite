@@ -130,18 +130,17 @@ public class BomQueryFunctionsTests : IDisposable
     }
 
     [Fact]
-    public void BomExpand_NonReleasedVersionState_ReturnsNA()
+    public void BomExpand_NonReleasedVersionState_ReturnsValueError()
     {
-        // Arrange — Draft is parsed but filtered out by version check
-        _bomServiceMock
-            .Setup(s => s.Expand("MAT-001", It.IsAny<DateTime?>()))
-            .Returns(new List<BomExpandedNode> { new() { ItemCode = "MAT-001", VersionState = "Draft" } });
+        // Arrange — F-01 fix: 版本检查在 Expand 调用之前，无需 Mock Expand
 
         // Act
         var result = BomQueryFunctions.BomExpand("MAT-001", versionState: "Draft");
 
         // Assert — version != "Released" returns #VALUE! (unsupported parameter, distinct from #N/A = not found)
         result.Should().Be(ExcelError.ExcelErrorValue);
+        // Expand 不应被调用（版本检查前移）
+        _bomServiceMock.Verify(s => s.Expand(It.IsAny<string>(), It.IsAny<DateTime?>()), Times.Never);
     }
 
     [Fact]
