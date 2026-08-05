@@ -13,3 +13,6 @@ logs/
 *.db
 *.db-journal
 *.db-wal
+
+# 第三方本地 DLL（非 NuGet 管理）
+duckdb.dll
