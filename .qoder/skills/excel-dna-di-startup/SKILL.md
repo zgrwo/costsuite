@@ -1,3 +1,8 @@
+---
+description: "Excel-DNA 依赖注入与启动引导 — DI 注册、启动顺序、配置加载、ExplicitExports 规则。"
+name: "Excel-DNA 依赖注入与启动引导"
+---
+
 # Skill: Excel-DNA 依赖注入与启动引导
 
 > **TRIGGER**: 修改 `src/BomAddIn/Bootstrap/`、`src/BomAddIn.Infrastructure/Config/`、`src/BomAddIn.Infrastructure/Security/` 下任何 `.cs` 文件时，或新增/修改 DI 注册时，**必须**先读此 Skill。

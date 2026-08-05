@@ -1,3 +1,8 @@
+---
+description: "Excel UDF 设计最佳实践 — [ExcelFunction] 参数/返回值规范、错误处理、ExplicitExports。"
+name: "Excel UDF 设计最佳实践"
+---
+
 # Skill: Excel UDF 设计最佳实践
 
 > **TRIGGER**: 修改 `src/BomAddIn/UDF/` 下任何 `.cs` 文件时，或编写/修改 `[ExcelFunction]` 方法时，**必须**先读此 Skill。

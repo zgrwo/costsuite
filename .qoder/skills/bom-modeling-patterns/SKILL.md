@@ -1,3 +1,8 @@
+---
+description: "BOM 数据建模最佳实践 — BOM 递归展开、CTE 模式、版本管理、差异计算的核心规则。"
+name: "BOM 数据建模最佳实践"
+---
+
 # Skill: BOM 数据建模最佳实践
 
 > **TRIGGER**: 修改 `src/BomAddIn.Core/Services/BomService.cs`、`VarianceService.cs`、`VarianceCalculator.cs`、`src/BomAddIn.Data/Repositories/BomNode*`、`src/BomAddIn.Data/Analysis/` 或任何 BOM 结构/版本/展开逻辑时，**必须**先读此 Skill。

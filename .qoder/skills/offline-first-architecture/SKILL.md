@@ -1,3 +1,8 @@
+---
+description: "离线优先架构 — SQLite 缓存、ERP 同步策略、网络降级、数据同步冲突处理。"
+name: "离线优先架构"
+---
+
 # Skill: 离线优先架构
 
 > **TRIGGER**: 修改 `src/BomAddIn.Core/Services/SyncService.cs`、`src/BomAddIn.Data/Sync/`、`src/BomAddIn.Infrastructure/Network/`、`src/BomAddIn.Data/Caching/` 或任何离线/同步/缓存逻辑时，**必须**先读此 Skill。

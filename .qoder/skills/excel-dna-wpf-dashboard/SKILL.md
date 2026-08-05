@@ -1,3 +1,8 @@
+---
+description: "Excel-DNA WPF 仪表盘集成 — TaskPane、DashboardWindow、数据绑定、Ribbon 交互。"
+name: "Excel-DNA WPF 仪表盘集成"
+---
+
 # Skill: Excel-DNA WPF 仪表盘集成
 
 > **TRIGGER**: 修改 `src/BomAddIn/Dashboard/`、`src/BomAddIn/UI/TaskPane/`、`src/BomAddIn/Ribbon/` 或任何 WPF XAML/ViewModel 代码时，**必须**先读此 Skill。

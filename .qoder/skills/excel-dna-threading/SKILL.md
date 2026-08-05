@@ -1,3 +1,8 @@
+---
+description: "Excel-DNA 线程安全最佳实践 — QueueAsMacro、STA 约束、ExcelThreadDispatcher、COM 线程隔离。"
+name: "Excel-DNA 线程安全最佳实践"
+---
+
 # Skill: Excel-DNA 线程安全最佳实践
 
 > **TRIGGER**: 修改 `src/BomAddIn/Bridge/` 或任何涉及 `ExcelThreadDispatcher`、`ExcelAsyncUtil.QueueAsMacro`、COM 交互的代码时，**必须**先读此 Skill。
