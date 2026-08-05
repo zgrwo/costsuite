@@ -104,8 +104,8 @@ namespace BomAddIn.Core.Services
             bool checkSelfApproval = false)
         {
             // B-4 fix: 在事务内读取版本状态，消除 TOCTOU 竞态条件
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {

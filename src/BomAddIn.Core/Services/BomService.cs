@@ -100,8 +100,8 @@ namespace BomAddIn.Core.Services
         {
             if (node == null) throw new ArgumentNullException(nameof(node));
             _authz.Demand(callerRole, BomOperation.BomCreate);
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
@@ -127,8 +127,8 @@ namespace BomAddIn.Core.Services
         {
             if (node == null) throw new ArgumentNullException(nameof(node));
             _authz.Demand(callerRole, BomOperation.BomUpdate);
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
@@ -167,8 +167,8 @@ namespace BomAddIn.Core.Services
         public void DeleteNode(long id, UserRole callerRole, long? userId = null)
         {
             _authz.Demand(callerRole, BomOperation.BomDelete);
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
@@ -245,15 +245,15 @@ namespace BomAddIn.Core.Services
             // ⚠️ G-1 note: Dictionary<BomExpandedNode,double> 依赖引用相等（BomExpandedNode 未重写 Equals）。
             // costs[node] 和 costs[child] 使用来自同一 Expand() 返回列表的同一对象实例 → 安全。
             // 如未来 Expand() 返回新实例（克隆/投影/反序列化），需改用复合键或为 BomExpandedNode 添加 identity 列。
-            // TODO: 考虑将 BFS 路径也改为 decimal 计算（当前 Closure 路径已使用 decimal）
+            // Max-review P3 fix: BFS 路径改用 decimal 计算，与 Closure 路径精度策略对齐（原 TODO 已兑现）
             string NodeKey(BomExpandedNode n) => $"{n.ItemCode}|{n.ParentMaterialId}|{n.Level}|{n.MaterialId}";
-            var costs = new Dictionary<string, double>();
+            var costs = new Dictionary<string, decimal>();
             foreach (var node in nodes.OrderByDescending(n => n.Level))
             {
-                double unitPrice = priceMap.TryGetValue(node.MaterialId, out var p) ? (double)p : 0.0;
-                double ownCost = unitPrice * node.Quantity;
+                decimal unitPrice = priceMap.TryGetValue(node.MaterialId, out var p) ? p : 0m;
+                decimal ownCost = unitPrice * (decimal)node.Quantity;
 
-                double childrenCost = 0;
+                decimal childrenCost = 0m;
                 if (childrenByParent.TryGetValue(node.MaterialId, out var children))
                 {
                     foreach (var child in children)
@@ -269,18 +269,18 @@ namespace BomAddIn.Core.Services
             // 根节点（Level=0）的总成本
             var root = nodes.FirstOrDefault(n => n.Level == 0);
             if (root != null && costs.TryGetValue(NodeKey(root), out var totalCost))
-                return Math.Round(totalCost, 2);
+                return (double)Math.Round(totalCost, 2);
 
             // C-2 fix: fallback 只汇总顶层节点（未被任何其他节点作为子节点引用的节点）
             // costs[node] 已包含节点自身成本 + 所有子树成本，汇总全部节点会双重计数
             var childMaterialIds = new HashSet<long>(
                 nodes.Where(n => n.ParentMaterialId.HasValue).Select(n => n.MaterialId));
-            double fallback = 0;
+            decimal fallback = 0m;
             foreach (var n in nodes)
                 if (!childMaterialIds.Contains(n.MaterialId))
                     if (costs.TryGetValue(NodeKey(n), out var c))
                         fallback += c;
-            return Math.Round(fallback, 2);
+            return (double)Math.Round(fallback, 2);
         }
 
         // H-3 fix: 提取审计日志 try/catch 辅助方法，消除 3 处重复代码

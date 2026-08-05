@@ -65,8 +65,8 @@ namespace BomAddIn.Core.Services
                 return ImportResult.Fail("未找到物料编码列。请检查表头是否包含：物料编码、Item Code、Code");
 
             // 2. 逐行校验 + 导入（事务保护）
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
@@ -143,8 +143,8 @@ namespace BomAddIn.Core.Services
             if (!mapping.ContainsKey("ItemCode"))
                 return ImportResult.Fail("未找到子项编码列。请检查表头是否包含：物料编码、Item Code");
 
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {

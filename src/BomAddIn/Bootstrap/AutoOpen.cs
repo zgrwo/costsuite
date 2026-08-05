@@ -128,8 +128,8 @@ namespace BomAddIn
                 var analysisProvider = scope.ServiceProvider.GetRequiredService<IBomAnalysisProvider>();
 
                 // 在 scope 内完成所有 DuckDB 加载，不依赖外部连接生命周期
+                // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
                 using var sqliteConn = connectionFactory.CreateConnection();
-                sqliteConn.Open();
                 analysisProvider.LoadFromSqlite(sqliteConn);
             }
             catch (Exception ex)

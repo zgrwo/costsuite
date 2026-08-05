@@ -101,4 +101,18 @@ public class SqliteTestFixture : IDbConnectionFactory, IDisposable
             new { Id = userId, Username = username });
         return userId;
     }
+
+    /// <summary>插入测试用 BOM 边（自动创建父子物料），返回 BomStructures.Id。
+    /// S007 后 BomVersions.BomId → BomStructures(Id)，版本类测试需以此为前置数据。</summary>
+    public long SeedBomStructure()
+    {
+        var parent = SeedMaterial($"BOMP-{Guid.NewGuid():N}".Substring(0, 20));
+        var child = SeedMaterial($"BOMC-{Guid.NewGuid():N}".Substring(0, 20));
+        using var conn = CreateConnection();
+        return conn.ExecuteScalar<long>(
+            @"INSERT INTO BomStructures (OrgId, ParentMaterialId, ChildMaterialId, Quantity, Level, ValidFrom, VersionState)
+              VALUES (1, @Parent, @Child, 1.0, 1, '2020-01-01', 'Released');
+              SELECT last_insert_rowid();",
+            new { Parent = parent, Child = child });
+    }
 }

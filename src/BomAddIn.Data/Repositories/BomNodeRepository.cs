@@ -83,6 +83,8 @@ namespace BomAddIn.Data.Repositories
 
         private static object GetBomNodeParams(BomNode node) => new
         {
+            // Max-review P0 fix: UPDATE 语句引用 @Id，匿名参数必须包含 Id，否则绑定失败
+            node.Id,
             node.OrgId,
             node.ParentMaterialId,
             node.ChildMaterialId,

@@ -183,8 +183,8 @@ namespace BomAddIn.Core.Services
 
                 await ExecuteWrappedTransaction(() =>
                 {
+                    // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
                     using var conn = _connectionFactory.CreateConnection();
-                    conn.Open();
                     using var tx = conn.BeginTransaction();
                     try
                     {
@@ -229,7 +229,22 @@ namespace BomAddIn.Core.Services
 
                 // R2-14: 同步完成后重建 DuckDB 内存表，确保后续 BOM 展开使用最新数据
                 // 先重建 Closure Table（同步可能新增/修改了 BOM 边）
-                try { _closureRepo.Rebuild(); }
+                // Max-review P2 fix: 添加 Rebuild 耗时监控 — 递归 CTE 枚举全部路径
+                // （闭包多路径聚合语义所需），高共享件比例数据下耗时可能指数增长，
+                // 超过阈值时告警提示评估数据结构
+                try
+                {
+                    var rebuildSw = System.Diagnostics.Stopwatch.StartNew();
+                    _closureRepo.Rebuild();
+                    rebuildSw.Stop();
+                    if (rebuildSw.ElapsedMilliseconds > 30000)
+                        AppLogger.Warn(
+                            $"Closure Table 重建耗时 {rebuildSw.ElapsedMilliseconds}ms（超过 30s）。" +
+                            "若 BOM 共享件比例较高，建议评估数据规模与重建策略。",
+                            typeof(SyncService));
+                    else
+                        AppLogger.Info($"Closure Table 重建完成，耗时 {rebuildSw.ElapsedMilliseconds}ms", typeof(SyncService));
+                }
                 catch (Exception ex) { AppLogger.Warn($"Closure Table 重建失败: {ex.Message}", typeof(SyncService)); }
 
                 // 加入重试循环（3 次，间隔 100ms），降低瞬时失败对同步的影响
@@ -241,8 +256,8 @@ namespace BomAddIn.Core.Services
                 {
                     try
                     {
+                        // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
                         using var sqliteConn = _connectionFactory.CreateConnection();
-                        sqliteConn.Open();
                         _analysisProvider.LoadFromSqlite(sqliteConn);
                         duckDbLoaded = true;
                         break;

@@ -17,7 +17,6 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
 {
     private readonly SqliteTestFixture _fixture;
     private readonly BomVersionRepository _repo;
-    private static int _bomIdCounter;
 
     public BomVersionRepositoryTests(SqliteTestFixture fixture)
     {
@@ -28,13 +27,10 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
         _fixture.SeedUser("approver-99", 99);
     }
 
-    private static long NextBomId() => System.Threading.Interlocked.Increment(ref _bomIdCounter) + 1000L;
-
     private BomVersion CreateVersion(long? bomId = null, int versionNumber = 1, VersionState state = VersionState.Draft)
     {
-        var actualBomId = bomId ?? NextBomId();
-        // FK=True: BomVersions.BomId → Materials(Id)，必须先插入前置物料
-        _fixture.SeedMaterial($"MAT-FK-{actualBomId}", actualBomId);
+        // S007 修正后语义: FK=True 下 BomVersions.BomId → BomStructures(Id)，必须先插入前置 BOM 边
+        var actualBomId = bomId ?? _fixture.SeedBomStructure();
         var version = new BomVersion
         {
             BomId = actualBomId,
@@ -56,8 +52,7 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
     [Fact]
     public void Add_WithTransaction_ShouldInsertWithinTransaction()
     {
-        var bomId = NextBomId();
-        _fixture.SeedMaterial($"MAT-TX-{bomId}", bomId);
+        var bomId = _fixture.SeedBomStructure();
 
         using var conn = _fixture.CreateConnection();
         using var tx = conn.BeginTransaction();
@@ -81,7 +76,7 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
     [Fact]
     public void GetByBomId_ShouldReturnAllVersions()
     {
-        var bomId = NextBomId();
+        var bomId = _fixture.SeedBomStructure();
         CreateVersion(bomId, 1, VersionState.Draft);
         CreateVersion(bomId, 2, VersionState.PendingReview);
         CreateVersion(bomId, 3, VersionState.Approved);
@@ -94,7 +89,7 @@ public class BomVersionRepositoryTests : IClassFixture<SqliteTestFixture>
     [Fact]
     public void GetLatest_ShouldReturnHighestVersion()
     {
-        var bomId = NextBomId();
+        var bomId = _fixture.SeedBomStructure();
         CreateVersion(bomId, 1, VersionState.Draft);
         CreateVersion(bomId, 2, VersionState.Released);
 

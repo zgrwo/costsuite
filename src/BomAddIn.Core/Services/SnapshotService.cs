@@ -31,8 +31,8 @@ namespace BomAddIn.Core.Services
         public DataSnapshot CreateSnapshot(UserRole callerRole, string type = "Manual", string? description = null)
         {
             _authz.Demand(callerRole, BomOperation.BomRead);
+            // Max-review P0 fix: CreateConnection() 已返回打开的连接，重复 Open 会抛 InvalidOperationException
             using var conn = _connectionFactory.CreateConnection();
-            conn.Open();
             using var tx = conn.BeginTransaction();
             try
             {
