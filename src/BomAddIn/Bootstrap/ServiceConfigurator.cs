@@ -1,5 +1,4 @@
 using BomAddIn.Bridge;
-using BomAddIn.Core.Events;
 using BomAddIn.Core.Services;
 using BomAddIn.Data.Analysis;
 using BomAddIn.Data.Caching;
@@ -7,7 +6,6 @@ using BomAddIn.Data.Connection;
 using BomAddIn.Data.Migration;
 using BomAddIn.Data.Repositories;
 using BomAddIn.Data.Sync;
-using BomAddIn.EventBus;
 using BomAddIn.Infrastructure.Config;
 using BomAddIn.Infrastructure.Logging;
 using BomAddIn.Infrastructure.Network;
@@ -41,8 +39,8 @@ namespace BomAddIn
             RegisterBridge(services);
             RegisterData(services);
             RegisterCore(services);
-            // C-3: 注册事件总线 (Singleton，进程内 pub-sub)
-            RegisterEventBus(services);
+            // Max-review P2 fix (YAGNI): 移除事件总线注册 — 全仓库零生产者/零消费者，
+            // 有真实需求时再引入（refactoring-plan §1.3 同 MediatR 处置原则）
 
             var provider = services.BuildServiceProvider();
 
@@ -53,11 +51,6 @@ namespace BomAddIn
             InitializeConfigProvider(provider);
 
             return provider;
-        }
-
-        private static void RegisterEventBus(IServiceCollection services)
-        {
-            services.AddSingleton<IEventBus, ExcelEventBus>();
         }
 
         private static void InitializeEnvironment(ServiceProvider provider)

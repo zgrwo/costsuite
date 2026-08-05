@@ -114,10 +114,12 @@ namespace BomAddIn.UDF.Functions
                             {
                                 var latest = prices[prices.Count - 1];
                                 var previous = prices[prices.Count - 2];
+                                // Max-review P3 fix: 使用价格记录的实际币种替代硬编码 "CNY"，
+                                // 币种不同时 ComparePrices 会按 H-15 规则跳过比较并记录
                                 var priceVariances = calculator.ComparePrices(
                                     node.MaterialId,
-                                    previous.UnitPrice, previous.EffectiveDate, "CNY",
-                                    latest.UnitPrice, latest.EffectiveDate, "CNY");
+                                    previous.UnitPrice, previous.EffectiveDate, previous.Currency ?? "",
+                                    latest.UnitPrice, latest.EffectiveDate, latest.Currency ?? "");
                                 allVariances.AddRange(priceVariances);
                             }
                         }
