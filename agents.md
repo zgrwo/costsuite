@@ -74,7 +74,8 @@ costsuite/
 ├── build/                            # 构建与打包脚本
 ├── template/                         # 种子数据 CSV 模板
 ├── rules/                            # 规范文档
-├── skills/                           # Skill 定义
+├── .qoder/skills/                    # Skill 定义（Qoder 运行时可发现）
+├── skills/                           # Skill 源文件（人类可读副本）
 ├── logs/                             # 运行日志（gitignored）
 ├── .github/workflows/                # CI/CD pipeline
 ├── BomAddIn.sln                      # 解决方案文件
@@ -91,20 +92,20 @@ costsuite/
 
 | 范围 | Skill 文件 | 内容 |
 | :--- | :--- | :--- |
-| BOM 建模 / 差异计算 | `skills/bom-modeling-patterns.md` | BOM 递归展开、差异算法、CTE 模式 |
-| Excel-DNA 启动 / DI | `skills/excel-dna-di-startup.md` | 加载顺序、依赖注入、ExplicitExports |
-| 线程 / COM 安全 | `skills/excel-dna-threading.md` | QueueAsMacro、STA 约束、Dispatcher |
-| WPF 仪表盘 | `skills/excel-dna-wpf-dashboard.md` | TaskPane 集成、数据绑定 |
-| UDF 编写 | `skills/excel-udf-best-practices.md` | 参数/返回值规范、错误处理 |
-| 离线架构 | `skills/offline-first-architecture.md` | SQLite 缓存、同步策略、降级 |
+| BOM 建模 / 差异计算 | `.qoder/skills/bom-modeling-patterns/SKILL.md` | BOM 递归展开、差异算法、CTE 模式 |
+| Excel-DNA 启动 / DI | `.qoder/skills/excel-dna-di-startup/SKILL.md` | 加载顺序、依赖注入、ExplicitExports |
+| 线程 / COM 安全 | `.qoder/skills/excel-dna-threading/SKILL.md` | QueueAsMacro、STA 约束、Dispatcher |
+| WPF 仪表盘 | `.qoder/skills/excel-dna-wpf-dashboard/SKILL.md` | TaskPane 集成、数据绑定 |
+| UDF 编写 | `.qoder/skills/excel-udf-best-practices/SKILL.md` | 参数/返回值规范、错误处理 |
+| 离线架构 | `.qoder/skills/offline-first-architecture/SKILL.md` | SQLite 缓存、同步策略、降级 |
 
 ### 专家 Skill（重构生命周期）
 
 | 阶段 | Skill | 触发时机 |
 |------|-------|----------|
-| 决策前 | `skills/architecture-reviewer.md` | 新增组件/层级/依赖前 |
-| 执行中 | `skills/refactoring-guardian.md` | 每个 Phase 开始/结束时 |
-| 执行后 | `skills/project-plan-review.md` | 里程碑复盘/规划评审时 |
+| 决策前 | `.qoder/skills/architecture-reviewer/SKILL.md` | 新增组件/层级/依赖前 |
+| 执行中 | `.qoder/skills/refactoring-guardian/SKILL.md` | 每个 Phase 开始/结束时 |
+| 执行后 | `.qoder/skills/project-plan-review/SKILL.md` | 里程碑复盘/规划评审时 |
 
 ## 红线规则
 
@@ -158,6 +159,53 @@ costsuite/
 | 日常构建 | `dotnet build` |
 | 运行测试 | `dotnet test` |
 | 分发构建 | `dotnet build -c Release` + ExcelDnaPack |
+
+## 启动与诊断
+
+### 非交互式启动
+
+```powershell
+# 1. 还原依赖
+dotnet restore BomAddIn.sln
+
+# 2. 构建
+dotnet build BomAddIn.sln
+
+# 3. 运行测试
+dotnet test BomAddIn.sln --no-build
+```
+
+### 环境诊断 (Doctor)
+
+```powershell
+# 检查运行时环境
+node -e "console.log('Node:', process.version)"
+dotnet --version
+dotnet --list-sdks
+
+# 检查数据库文件
+Test-Path database/dev/*.db
+Test-Path database/prod/*.db
+
+# 检查 DuckDB 原生库
+Test-Path src/BomAddIn/duckdb.dll
+
+# 验证解决方案完整性
+dotnet restore BomAddIn.sln --force-evaluate
+```
+
+### 状态重置
+
+```powershell
+# 清理构建产物
+dotnet clean BomAddIn.sln
+
+# 重置 NuGet 缓存（仅在依赖损坏时）
+dotnet nuget locals all --clear
+
+# 重新还原和构建
+dotnet restore BomAddIn.sln; dotnet build BomAddIn.sln
+```
 
 ## 历史经验（从 diff 提炼）
 
