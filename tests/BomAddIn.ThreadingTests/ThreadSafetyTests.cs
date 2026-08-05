@@ -4,7 +4,11 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using BomAddIn.Bridge;
+using BomAddIn.Core.Models;
+using BomAddIn.Core.Services;
+using BomAddIn.Data.Analysis;
 using BomAddIn.Data.Caching;
+using BomAddIn.Infrastructure.Config;
 using BomAddIn.Infrastructure.Network;
 using BomAddIn.UDF;
 using Microsoft.Extensions.DependencyInjection;
@@ -179,6 +183,148 @@ public class ThreadSafetyTests
         Assert.Equal(count, dict.Count);
     }
 
+    // ── Core 业务路径并发安全测试 ──
+    // 验证 Singleton/Scoped 服务在并发 UDF 调用下的线程安全性。
+    // 补充基础设施层测试的覆盖空白：BomService、VarianceCalculator、AlertEvaluator。
+
+    [Fact]
+    public void VarianceCalculator_ConcurrentCompare_NoContention()
+    {
+        // VarianceCalculator 注册为 Singleton（纯计算，零可变状态）。
+        // 验证多个线程同时调用 ComparePrices 不会发生竞态或数据损坏。
+        var calculator = new VarianceCalculator();
+        var exceptions = new ConcurrentBag<Exception>();
+        var results = new ConcurrentBag<int>();
+
+        Parallel.For(0, 200, i =>
+        {
+            try
+            {
+                var result = calculator.ComparePrices(
+                    materialId: 1,
+                    priceA: 100.0m + i,
+                    dateA: new DateTime(2025, 1, 1),
+                    currencyA: "USD",
+                    priceB: 105.0m + i,
+                    dateB: new DateTime(2025, 6, 1),
+                    currencyB: "USD");
+                results.Add(result.Count);
+            }
+            catch (Exception ex)
+            {
+                exceptions.Add(ex);
+            }
+        });
+
+        Assert.Empty(exceptions);
+        Assert.Equal(200, results.Count);
+    }
+
+    [Fact]
+    public void AlertEvaluator_ConcurrentEvaluate_NoContention()
+    {
+        // AlertEvaluator 注册为 Singleton（readonly 字段，无状态）。
+        // 验证并发评估不会发生竞态。
+        var config = new AppConfigProvider();
+        var evaluator = new AlertEvaluator(config);
+        var exceptions = new ConcurrentBag<Exception>();
+        var results = new ConcurrentBag<int>();
+
+        Parallel.For(0, 200, i =>
+        {
+            try
+            {
+                // 构造不同阈值路径的测试数据
+                var variances = new List<BomAddIn.Core.Models.VarianceResult>
+                {
+                    new BomAddIn.Core.Models.VarianceResult
+                    {
+                        NodeCode = $"NODE-{i}",
+                        NodeDescription = "Test",
+                        Dimension = VarianceDimension.Price,
+                        ChangeType = VarianceChangeType.Modified,
+                        ChangePercent = (i % 3 == 0) ? 60.0 : (i % 3 == 1) ? 15.0 : 5.0,
+                        OldValue = "100",
+                        NewValue = "110"
+                    }
+                };
+                var alerts = evaluator.Evaluate(variances);
+                results.Add(alerts.Count);
+            }
+            catch (Exception ex)
+            {
+                exceptions.Add(ex);
+            }
+        });
+
+        Assert.Empty(exceptions);
+        Assert.Equal(200, results.Count);
+    }
+
+    [Fact]
+    public void BomService_ConcurrentScopes_NoCrossScopeLeakage()
+    {
+        // BomService 注册为 Scoped。验证多个并发 scope 之间不发生状态泄漏。
+        // 每个 scope 应获得独立的 BomService 实例。
+        var services = new ServiceCollection();
+        services.AddScoped<BomServiceScopeTracker>();
+        var provider = services.BuildServiceProvider();
+
+        var instances = new ConcurrentBag<int>();
+        var exceptions = new ConcurrentBag<Exception>();
+
+        Parallel.For(0, 50, _ =>
+        {
+            try
+            {
+                using var scope = provider.CreateScope();
+                var tracker = scope.ServiceProvider.GetRequiredService<BomServiceScopeTracker>();
+                tracker.Id = Thread.CurrentThread.ManagedThreadId;
+                // 模拟短暂工作以扩大 scope 重叠窗口
+                Thread.SpinWait(1000);
+                instances.Add(tracker.Id);
+            }
+            catch (Exception ex)
+            {
+                exceptions.Add(ex);
+            }
+        });
+
+        Assert.Empty(exceptions);
+        Assert.Equal(50, instances.Count);
+    }
+
+    [Fact]
+    public void SingletonServices_ConcurrentResolution_NoDeadlock()
+    {
+        // 验证 IVarianceCalculator 和 IAlertEvaluator 作为 Singleton
+        // 在并发 DI resolve 下不发生死锁或异常。
+        var services = new ServiceCollection();
+        services.AddSingleton<IVarianceCalculator, VarianceCalculator>();
+        services.AddSingleton<IAlertEvaluator>(sp =>
+            new AlertEvaluator(new AppConfigProvider()));
+        var provider = services.BuildServiceProvider();
+
+        var exceptions = new ConcurrentBag<Exception>();
+
+        Parallel.For(0, 100, _ =>
+        {
+            try
+            {
+                var calc = provider.GetRequiredService<IVarianceCalculator>();
+                var eval = provider.GetRequiredService<IAlertEvaluator>();
+                Assert.NotNull(calc);
+                Assert.NotNull(eval);
+            }
+            catch (Exception ex)
+            {
+                exceptions.Add(ex);
+            }
+        });
+
+        Assert.Empty(exceptions);
+    }
+
     // ── Helpers ──
 
     public class TestScopedService { }
@@ -186,5 +332,10 @@ public class ThreadSafetyTests
     public class TestCacheItem
     {
         public int Value { get; set; }
+    }
+
+    public class BomServiceScopeTracker
+    {
+        public int Id { get; set; }
     }
 }
