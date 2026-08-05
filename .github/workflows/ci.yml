@@ -61,12 +61,19 @@ jobs:
         --verbosity normal
 
     - name: Performance Tests
+      id: perf-tests
       continue-on-error: true
       run: >
         dotnet test tests/BomAddIn.PerformanceTests/BomAddIn.PerformanceTests.csproj
         --configuration ${{ env.CONFIGURATION }} --no-build
         --logger "trx;LogFileName=perf-tests.trx"
         --verbosity normal
+
+    - name: Report performance test degradation
+      if: steps.perf-tests.outcome == 'failure'
+      shell: pwsh
+      run: |
+        Write-Host "::warning::Performance tests failed — results not blocking merge, but regression detected. Review perf-tests.trx for details."
 
     - name: Generate coverage report
       if: always()
@@ -109,6 +116,7 @@ jobs:
 
     # Architecture compliance: Core layer must not reference ExcelDna or UI packages
     # CI-3 fix: 增强架构边界验证 — 同时检查 Data 层不引用 UI 程序集
+    # 注意: Core→Data 依赖是有意设计（Service 层需要仓储），Engine 层 (VarianceCalculator) 零依赖
     - name: Validate architecture boundaries
       shell: pwsh
       run: |
@@ -190,7 +198,22 @@ jobs:
           exit 1
         }
 
-        Compress-Archive -Path $files.FullName -DestinationPath $zipPath -Force
+        # Max-review P1 fix: 压缩整个目录而非文件列表 — 保留 x86/x64 子目录结构。
+        # 原实现用文件列表压缩会扁平化目录，导致两个同名 SQLite.Interop.dll
+        # (x86/x64) 互相覆盖，且 System.Data.SQLite 无法在运行时定位原生库。
+        # duckdb.dll 在 .dna 中 Pack="false"，必须与 xll 并列分发，同样依赖目录结构。
+        # Max-review 建议4 fix: 先暂存 net472 子树到 staging，使 ZIP 根目录即分发结构
+        # （download-artifact 会保留上传时的 src/BomAddIn/bin/... 深层相对路径）。
+        $srcRoot = "build-output/src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472"
+        if (-not (Test-Path $srcRoot)) {
+          Write-Error "Build artifacts not found at $srcRoot. Check build-and-test job."
+          exit 1
+        }
+        $staging = "build/staging"
+        New-Item -ItemType Directory -Force -Path $staging | Out-Null
+        Copy-Item "$srcRoot/*" -Destination $staging -Recurse
+
+        Compress-Archive -Path "$staging/*" -DestinationPath $zipPath -Force
         Write-Host "Distribution ZIP: $zipPath"
         Write-Host "Files: $($files.Count)"
 
