@@ -78,6 +78,8 @@ public class ConnectionStateMachine
         Current = isOnline ? ConnectionState.Online : ConnectionState.SyncPaused;
     }
 
+    // ⚠️ V1.1 注：IEventBus/OfflineModeChangedEvent 已移除（零调用，YAGNI，见 specification.md §2.4）。
+    // 以下为历史参考范式；当前实现中状态变更仅记录日志，UI 由用户操作后主动重查。
     private void OnStateChanged(ConnectionState from, ConnectionState to)
     {
         var eventBus = BomAddInStartup.ServiceProvider.GetRequiredService<IEventBus>();

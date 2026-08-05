@@ -264,13 +264,11 @@ BomAddIn.Core/
 │   ├── SeedDataGenerator.cs
 │   ├── IVarianceCalculator.cs / VarianceCalculator.cs
 │   └── IAlertEvaluator.cs / AlertEvaluator.cs
-├── Events/                                   # 领域事件（EventBus 消息契约）
-│   ├── DataRefreshedEvent.cs
-│   ├── SyncCompletedEvent.cs
-│   ├── OfflineModeChangedEvent.cs
-│   └── AlertTriggeredEvent.cs
 └── BomAddIn.Core.csproj
 ```
+
+> ℹ️ v1.1 变更：原 `Events/` 目录（4 个领域事件类）已随事件总线移除（YAGNI，零生产者/零消费者），
+> 见 [specification.md §2.4](./specification.md#24-事件总线v11-已移除--yagni)。
 
 ### 4.3 `src/BomAddIn.Data/` — 数据访问层
 
@@ -476,7 +474,6 @@ IBomServiceTests.cs   ← 对应的单元测试
 ```
 
 - Exception: `Enums/VersionState.cs` 可含多个相关枚举
-- Exception: `Events/DataRefreshedEvent.cs` 可共置 Event + Handler 接口
 
 ### 6.3 迁移脚本命名
 

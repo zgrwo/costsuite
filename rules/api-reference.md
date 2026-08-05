@@ -3,7 +3,7 @@
 > **日期**: 2026-07-13  
 > **受众**: 开发者  
 > **单源真理**: UDF 函数签名、参数约束、错误码、使用示例以本文档为准  
-> **设计依据**: [specification.md §8](./reference/specification.md#8-udf-函数清单)（函数分类和设计约束）
+> **设计依据**: [specification.md §8](./specification.md#8-udf-函数清单)（函数分类和设计约束）
 
 ---
 
@@ -86,7 +86,19 @@
 | Excel 版本 | 行为 |
 |-----------|------|
 | Excel 365 | 动态数组自动溢出到相邻单元格 |
-| Excel 2016/2019 | 需选中足够区域后按 `Ctrl+Shift+Enter`。超出 1000 行的数据截断并在末行提示 |
+| Excel 2016/2019 | 需选中足够区域后按 `Ctrl+Shift+Enter` |
+
+> **深度限制**: BOM 层级超过 20 级时不返回错误，而是在结果末行追加 `[TRUNCATED]` 哨兵行
+>（Level=-1，描述含 "Results incomplete"），提示用户结果可能不完整。
+
+> **已知限制（菱形依赖数量语义）**: 展开有两条内部路径，菱形依赖（同一物料经多条路径可达）时
+> `Quantity` 语义不同：
+> - **Closure 路径**（默认，当日查询）：Quantity = 所有路径用量之和（聚合语义）
+> - **BFS 回退路径**（历史日期查询或 Closure 无数据）：全局去重防路径爆炸，每个物料仅展开一次，
+>   Quantity 取首次发现路径的累积用量
+>
+> 同一工作表中混合当日与历史日期查询时，菱形依赖物料的 Quantity 可能出现不一致。
+> 无菱形依赖的树形 BOM 两条路径结果一致。
 
 **示例**:
 
@@ -102,7 +114,9 @@
 |------|--------|
 | `itemCode` 为空 | `#N/A` |
 | 物料不存在 | `#N/A` |
-| BOM 层级超过 20 级 | `#NUM!` |
+| `versionState` 非 `"Released"`（V1.0 限制，Draft/All 待 V1.1） | `#VALUE!` |
+| BOM 层级超过 20 级 | 不报错，末行追加 `[TRUNCATED]` 哨兵行 |
+| 内部异常 | `#VALUE!` |
 
 ---
 
@@ -216,7 +230,7 @@
 | `itemCodeB` | string | ❌ | =itemCodeA | 对比物料编码（不填则与自身对比） |
 | `dateB` | date/string | ❌ | TODAY() | 对比 BOM 日期（默认今天） |
 
-**返回值**: 二维数组（表头: NodeCode, ChangeType, Dimension, OldValue, NewValue）
+**返回值**: 二维数组（表头: NodeCode, ChangeType, Dimension, OldValue, NewValue）；无任何差异时返回 `#N/A`。
 
 **示例**:
 
@@ -252,9 +266,12 @@
 |------|------|------|
 | BOM_NODE_REMOVED | BOM 节点被移除 | Warning |
 | BOM_NODE_ADDED | BOM 新增节点 | Info |
-| PRICE_CHANGE_SEVERE | 价格波动 > 25% | Error |
-| PRICE_CHANGE_WARNING | 价格波动 > 10% | Warning |
-| BOM_QTY_LARGE_CHANGE | BOM 用量变化 > 50% | Warning |
+| PRICE_CHANGE_CRITICAL | 价格波动 > 50%（可配置） | Critical |
+| PRICE_CHANGE_SEVERE | 价格波动 > 25%（可配置） | Error |
+| PRICE_CHANGE_WARNING | 价格波动 > 10%（可配置） | Warning |
+| PRICE_CHANGE_FROM_ZERO | 价格从零变为非零（百分比无法计算） | Critical |
+| BOM_QTY_LARGE_CHANGE | BOM 用量变化 > 50%（可配置） | Warning |
+| BOM_QTY_FROM_ZERO | BOM 用量从零变为非零 | Warning |
 
 **示例**:
 
@@ -335,14 +352,14 @@
 | 功能 | Excel 2016 | Excel 2019 | Excel 365 |
 |------|:--:|:--:|:--:|
 | 数组公式自动溢出 | ❌ 需 `Ctrl+Shift+Enter` | ❌ 需 `Ctrl+Shift+Enter` | ✅ 动态数组 |
-| `BOMEXPAND` 大数据集 | 截断 >1000 行并提示 | 同 2016 | 自动溢出全部 |
+| `BOMEXPAND` 大数据集 | 深度超 20 级追加 `[TRUNCATED]` 哨兵行 | 同 2016 | 自动溢出全部 |
 | `VARIANCECHECK` 数组输出 | 返回单文本摘要 | 同 2016 | 返回结构化数组 |
 | 其他单值函数 | 正常 | 正常 | 正常 |
 
-> 详细兼容性矩阵见 [specification.md §13](./reference/specification.md#13-excel-版本兼容矩阵)
+> 详细兼容性矩阵见 [specification.md §13](./specification.md#13-excel-版本兼容矩阵)
 
 ---
 
-## 6. 与 reference/specification.md 的关系
+## 6. 与 specification.md 的关系
 
-本文档是 UDF API 的**权威参考**（canonical reference）。`reference/specification.md §8` 定义了函数的设计意图和宏观分类。若两者在签名或语义上不一致，以本文档为准（本文档更接近实现）。
+本文档是 UDF API 的**权威参考**（canonical reference）。`specification.md §8` 定义了函数的设计意图和宏观分类。若两者在签名或语义上不一致，以本文档为准（本文档更接近实现）。

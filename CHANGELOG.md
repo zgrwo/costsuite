@@ -27,6 +27,29 @@
 - 更新 Excel 基准版本为 2019+（原 2016/2019）
 - specification.md 同步更新：移除 gRPC/Polly/NLog 相关描述
 
+### Fixed
+
+- **P0**: 修复 10 处 SQLite 连接 double-open（BomService/SyncService/SnapshotService/
+  ApprovalService/BomExcelImporter/AutoOpen）— CreateConnection() 已返回打开的连接，
+  重复 Open 导致 BOM 编辑、同步写入、快照、导入路径全部崩溃
+- **P0**: 修复 BomNodeRepository.Update 匿名参数缺少 Id 导致的参数绑定失败
+- **P0**: 修复 BomVersions.BomId 外键指向错误（S007 迁移：Materials → BomStructures，
+  与 specification.md §4.4.3 及业务代码语义对齐）
+- **P1**: 修复 CI 发行 ZIP 打包扁平化目录导致 SQLite.Interop.dll (x86/x64) 互相覆盖的问题
+- **P1**: 修复 api-reference/context 文档中 reference/ 前缀断链，BOMEXPAND/ALERTCHECK
+  行为描述与实际实现对齐（截断哨兵行、完整预警规则表）
+- **P2**: Closure Table 重建添加耗时监控（超 30s 告警，高共享件数据防路径爆炸风险可见化）
+- **P3**: ALERTCHECK 价格比较改用记录实际币种（原硬编码 CNY 掩盖币种差异检测）
+- **P3**: BOMCOST BFS 路径成本汇总改用 decimal（与 Closure 路径精度策略对齐）
+- 二次审查修复：S007 补 Estimates 悬空引用保护（BomVersionId 重建为可空 +
+  版本删除时置 NULL 触发器）；清理 spec §9.3/project-structure/skills 中事件总线
+  悬挂引用；CI 发行 ZIP 改用 staging 布局，解压根目录即分发结构
+
+### Removed
+
+- **P2 (YAGNI)**: 移除零生产者/零消费者的事件总线（IEventBus/ExcelEventBus + 4 个事件类）
+  及其 DI 注册；specification.md §2.4 同步标记为 V1.1 移除、V2.0 按需重引
+
 ## [1.0.0] - 2025-07-01
 
 ### Added

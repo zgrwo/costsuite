@@ -56,6 +56,8 @@ public class AutoOpen : IExcelAddIn
                 }
 
                 // 将结果发布到 EventBus，让 TaskPane 显示
+                // ⚠️ V1.1 注：IEventBus 已移除（零调用，YAGNI，见 specification.md §2.4），
+                // 本示例为历史参考范式；当前实现中健康检查结果仅记录日志。
                 var eventBus = _serviceProvider.GetRequiredService<IEventBus>();
                 eventBus.Publish(new HealthCheckCompletedEvent(results));
             });
@@ -116,6 +118,7 @@ public class AutoOpen : IExcelAddIn
         services.AddSingleton<IVersionAdapter, VersionAdapter>();
 
         // --- EventBus (Singleton) ---
+        // ⚠️ V1.1 注：事件总线已移除（零调用，YAGNI，见 specification.md §2.4），实际 ServiceConfigurator 无此注册
         services.AddSingleton<IEventBus, ExcelEventBus>();
 
         // --- Data (Singleton for factories, Scoped for repositories) ---

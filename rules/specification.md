@@ -120,14 +120,12 @@ public static void AutoOpen()
 }
 ```
 
-### 2.4 事件总线（推荐）
+### 2.4 事件总线（V1.1 已移除 — YAGNI）
 
-> 📌 **原文档缺失**。WPF Dashboard、UDF 计算、Ribbon 命令、同步服务之间的数据变更通知需要轻量 pub-sub。
-
-- **实现选择**: `System.Reactive` Subject 或自定义 `IEventBus` 接口
-- **事件类型**: `DataRefreshedEvent`, `SyncCompletedEvent`, `OfflineModeChangedEvent`
-- **生产者**: SyncService（同步完成时）、AuthService（登录/登出时）
-- **消费者**: WPF Dashboard（刷新图表）、TaskPane（更新状态栏）
+> 📌 **v1.1 变更**: `IEventBus/ExcelEventBus` 及 4 个事件类（DataRefreshed/SyncCompleted/
+> OfflineModeChanged/AlertTriggered）在发版前 Max 审查中移除 — 全仓库零生产者/零消费者。
+> Dashboard/TaskPane 采用手动刷新 + 操作后主动重查。若 V2.0 出现真实的跨组件通知需求，
+> 再引入轻量 pub-sub（参考 git 历史中的 ExcelEventBus 实现）。
 
 ---
 
@@ -644,10 +642,9 @@ private static async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> action)
 2. 读取上次同步时间戳 (SyncLogs)
 3. 并行拉取: Materials + Prices + Inventories + Orders + Capacities
 4. 写入本地 SQLite (事务)
-5. 刷新 DuckDB 内存表（从更新后的 SQLite 加载）
+5. 重建 Closure Table + 刷新 DuckDB 内存表（从更新后的 SQLite 加载）
 6. 更新 SyncLogs
-7. 刷新 MemoryCache (L1)
-8. 发布 DataRefreshedEvent → Dashboard + TaskPane 更新
+7. Dashboard/TaskPane 由用户操作后主动重查刷新（v1.1 起无事件推送，见 §2.4）
 ```
 
 ### 9.4 Excel 导入备用通道

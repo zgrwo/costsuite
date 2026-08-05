@@ -170,15 +170,19 @@ public class DashboardViewModel : ObservableObject
 
 ## 6. 数据刷新策略
 
+> ⚠️ V1.1 注：事件总线（IEventBus/DataRefreshedEvent）已移除（零调用，YAGNI，见 specification.md §2.4）。
+> 当前 Dashboard 采用「定时轮询 + 手动刷新」；下表事件驱动行与下方示例为历史参考范式，
+> 若 V2.0 重引 pub-sub 可恢复该模式。
+
 | 策略 | 适用场景 | 实现 |
 |------|---------|------|
-| **事件驱动** | 数据量小、实时性高 | `IEventBus.Subscribe<DataRefreshedEvent>()` → 直接更新 ViewModel |
+| **事件驱动**（V1.1 未启用） | 数据量小、实时性高 | `IEventBus.Subscribe<DataRefreshedEvent>()` → 直接更新 ViewModel |
 | **定时轮询** | 数据量大、变化慢 | `DispatcherTimer` 每 30s 拉一次 |
 | **手动刷新** | 用户主动触发 | Ribbon 按钮 → `RefreshCommand` |
-| **混合模式** | 生产推荐 | 事件驱动增量 + 定时全量兜底 + 手动强制刷新 |
+| **混合模式** | 生产推荐 | 事件驱动增量 + 定时全量兜底 + 手动强制刷新（V1.1 无事件层，实际为后两者组合） |
 
 ```csharp
-// 混合刷新示例
+// 混合刷新示例（⚠️ V1.1 历史参考：IEventBus 已移除，照抄无法编译；当前实现仅保留下方定时部分）
 public class DashboardViewModel
 {
     private readonly DispatcherTimer _pollTimer;
