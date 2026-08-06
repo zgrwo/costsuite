@@ -36,7 +36,7 @@ jobs:
     - name: Fetch DuckDB native library
       shell: pwsh
       run: |
-        $url = "https://github.com/duckdb/duckdb/releases/download/v1.5.4/duckdb_windows_amd64.zip"
+        $url = "https://github.com/duckdb/duckdb/releases/download/v1.5.4/libduckdb-windows-amd64.zip"
         $zip = Join-Path $env:RUNNER_TEMP "duckdb.zip"
         Invoke-WebRequest -Uri $url -OutFile $zip
         Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP "duckdb") -Force
