@@ -215,9 +215,10 @@ jobs:
         # 原实现用文件列表压缩会扁平化目录，导致两个同名 SQLite.Interop.dll
         # (x86/x64) 互相覆盖，且 System.Data.SQLite 无法在运行时定位原生库。
         # duckdb.dll 在 .dna 中 Pack="false"，必须与 xll 并列分发，同样依赖目录结构。
-        # Max-review 建议4 fix: 先暂存 net472 子树到 staging，使 ZIP 根目录即分发结构
-        # （download-artifact 会保留上传时的 src/BomAddIn/bin/... 深层相对路径）。
-        $srcRoot = "build-output/src/BomAddIn/bin/${{ env.CONFIGURATION }}/net472"
+        # Max-review 建议4 fix: 先暂存工件到 staging，使 ZIP 根目录即分发结构。
+        # 注：upload-artifact v4 会剥离多路径 glob 的公共前缀（src/BomAddIn/bin/
+        # Release/net472/），故 download 后 build-output/ 根即 net472 目录内容。
+        $srcRoot = "build-output"
         if (-not (Test-Path $srcRoot)) {
           Write-Error "Build artifacts not found at $srcRoot. Check build-and-test job."
           exit 1
