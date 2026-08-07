@@ -32,6 +32,18 @@ jobs:
       with:
         languages: csharp
 
+    # duckdb.dll 为 36.7MB 原生库，按仓库策略不入库（.gitignore），
+    # 构建前从 DuckDB 官方 Release 获取（与 ci.yml 一致，版本锁定 v1.5.4）
+    - name: Fetch DuckDB native library
+      shell: pwsh
+      run: |
+        $url = "https://github.com/duckdb/duckdb/releases/download/v1.5.4/libduckdb-windows-amd64.zip"
+        $zip = Join-Path $env:RUNNER_TEMP "duckdb.zip"
+        Invoke-WebRequest -Uri $url -OutFile $zip
+        Expand-Archive -Path $zip -DestinationPath (Join-Path $env:RUNNER_TEMP "duckdb") -Force
+        Copy-Item (Join-Path $env:RUNNER_TEMP "duckdb\duckdb.dll") "src\BomAddIn\duckdb.dll" -Force
+        Write-Host "duckdb.dll v1.5.4 provisioned at src/BomAddIn/"
+
     - name: Build
       run: dotnet build BomAddIn.sln --configuration Release
 
