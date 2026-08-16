@@ -39,7 +39,9 @@ BomAddIn.sln
 │
 ├── tools/                                  ← 独立工具
 │   ├── BomAddIn.Diagnostic/                ← 环境诊断工具（控制台应用）
-│   └── MemoryDiagnostic/                   ← 内存诊断工具
+│   ├── MemoryDiagnostic/                   ← 内存诊断工具
+│   ├── validate-commit-msg.sh              ← Conventional Commits 校验（CI 提交规范检查共用）
+│   └── git-hooks/commit-msg                ← 本地提交规范 hook（core.hooksPath 安装）
 │
 ├── database/                               ← 数据库文件 (dev + prod 环境隔离)
 │   ├── dev/
@@ -62,7 +64,12 @@ BomAddIn.sln
 │   ├── specification.md                    ← 技术规格说明书
 │   ├── refactoring-plan.md                 ← 重构计划
 │   ├── code-review-prompt.md               ← 审查模板
-│   └── documentation.md                    ← 文档职责规范
+│   ├── documentation.md                    ← 文档职责规范
+│   ├── tooling-pitfalls.md                 ← 工具/脚本坑位清单（Windows/PowerShell/git）
+│   ├── falsy-pitfalls.md                   ← Python falsy 值误判检查清单
+│   ├── sentinel-contract.md                ← 哨兵契约 L1-L5 与 NaN/Inf 守卫清单
+│   ├── cross-project-synthesis.md          ← 跨项目共性经验与反模式库
+│   └── adr-template.md                     ← 架构决策记录（ADR）模板
 │
 ├── skills/                                 ← 可复用开发模式
 │   ├── excel-dna-threading.md
@@ -78,12 +85,12 @@ BomAddIn.sln
 ├── .github/workflows/                      ← CI/CD pipeline
 │   └── ci.yml
 ├── logs/                                   ← 运行日志（gitignored）
-├── agents.md                               ← 项目宪法（AI 协作行为准则）
+├── AGENTS.md                               ← 项目宪法（AI 协作行为准则）
 ├── .editorconfig
 ├── Directory.Build.props
 ├── LICENSE
 ├── BomAddIn.sln
-└── readme.md
+└── README.md
 ```
 
 ---
@@ -117,13 +124,13 @@ BomAddIn.sln
 | **不是规格** | Skill 不定义“是什么”（→ specification.md），不排期“何时做”（→ refactoring-plan.md） |
 | **是模式** | Skill 是经过验证的代码范式——“怎么写”、“陷阱是什么”、“检查清单” |
 | **来源于外部** | 每个 skill 标注了借鉴的 GitHub 项目 |
-| **被 agents.md 引用** | 任务路由表中的“应该读”列指向 skill |
+| **被 AGENTS.md 引用** | 任务路由表中的“应该读”列指向 skill |
 
 ### 主目录文件
 
 | 文件 | 定位 |
 |------|------|
-| **agents.md** | 项目宪法（AI 协作行为准则）。不重复定义事实——通过任务路由表指引到上述文档 |
+| **AGENTS.md** | 项目宪法（AI 协作行为准则）。不重复定义事实——通过任务路由表指引到上述文档 |
 | **.gitignore** | 排除规则（使用仓库根 .gitignore） |
 
 ### 违反信号
