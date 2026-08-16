@@ -45,6 +45,7 @@ namespace BomAddIn
             try
             {
                 // 逐步恢复: 日志 + 线程 + DI
+                // 有意静默吞: 日志/线程初始化失败不应阻断 Excel 启动（后续步骤自带降级与错误提示）
                 try { LogConfigurator.Initialize(); } catch { }
                 try { ExcelThreadDispatcher.Initialize(); } catch { }
                 try

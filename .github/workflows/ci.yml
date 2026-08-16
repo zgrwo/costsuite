@@ -21,6 +21,27 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # --- 提交规范检查（Conventional Commits，与发版/CHANGELOG 维护闭环）---
+    # 校验规则唯一权威：tools/validate-commit-msg.sh（本地 git-hooks 与 CI 共用）
+    - name: 提交规范检查（Conventional Commits）
+      if: github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        base="${{ github.event.pull_request.base.sha }}"
+        count=0
+        for sha in $(git rev-list --no-merges "$base..HEAD"); do
+          count=$((count + 1))
+          if ! git show -s --format=%B "$sha" | bash tools/validate-commit-msg.sh >/dev/null 2>&1; then
+            echo "❌ 提交 ${sha:0:7} 不符合 Conventional Commits 规范："
+            git show -s --format='   %s' "$sha"
+            echo "   规则见 tools/validate-commit-msg.sh"
+            exit 1
+          fi
+        done
+        echo "✅ 全部 $count 个提交符合规范"
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
@@ -65,7 +86,7 @@ jobs:
         --collect:"XPlat Code Coverage" --results-directory coverage/BomAddIn.IntegrationTests
         --verbosity normal
 
-    # CI-1 fix: 线程安全是项目红线 (agents.md §红线1)，回归必须阻断合并
+    # CI-1 fix: 线程安全是项目红线 (AGENTS.md §红线1)，回归必须阻断合并
     - name: Threading Tests
       run: >
         dotnet test tests/BomAddIn.ThreadingTests/BomAddIn.ThreadingTests.csproj
@@ -198,7 +219,11 @@ jobs:
         $distDir = "build/dist"
         New-Item -ItemType Directory -Force -Path $distDir | Out-Null
 
-        $version = "1.1.0-ci.${{ github.run_number }}"
+        # 版本单源：从最近 git tag 推导（发版时打 vX.Y.Z tag 即可，无需改本文件；
+        # 无 tag 时回退 0.0.0 并带 ci 后缀，避免硬编码版本漂移——2026-08 治理对齐）
+        $tag = git describe --tags --abbrev=0 2>$null
+        $baseVersion = if ($tag) { $tag.TrimStart('v') } else { "0.0.0" }
+        $version = "$baseVersion-ci.${{ github.run_number }}"
         $zipName = "BomAddIn-v$version-${{ env.CONFIGURATION }}.zip"
         $zipPath = Join-Path $distDir $zipName
 

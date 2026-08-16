@@ -1,4 +1,4 @@
-# Authenticode Signing Script
+﻿# Authenticode Signing Script
 # Signs the packed .xll file with a code signing certificate.
 #
 # Usage:
@@ -11,7 +11,9 @@ param(
     [SecureString]$Password,
     [switch]$UseWindowsStore,
     [switch]$SkipSigning,
-    [string]$Configuration = "Release"
+    [string]$Configuration = "Release",
+    # 版本单源：发版时显式传入（如 -Version 1.1.0）；缺省从最近 git tag 推导，避免硬编码漂移
+    [string]$Version = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -74,8 +76,11 @@ Write-Host ""
 Write-Host "Creating distribution ZIP..." -ForegroundColor Yellow
 New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 
-$version = "1.1.0"  # Update with actual version
-$zipName = "BomAddIn-v$version-$Configuration.zip"
+if (-not $Version) {
+    $tag = git -C $RepoRoot describe --tags --abbrev=0 2>$null
+    $Version = if ($tag) { $tag.TrimStart('v') } else { "0.0.0" }
+}
+$zipName = "BomAddIn-v$Version-$Configuration.zip"
 $zipPath = "$DistDir\$zipName"
 
 # Collect all output files
