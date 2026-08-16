@@ -12,8 +12,8 @@
 - [ ] Unit tests added/updated (`dotnet test` passes)
 - [ ] BCrypt cost factor >= 12 for any new authentication paths
 - [ ] Path validation applied to all file I/O operations
-- [ ] [README.md](README.md) updated (if configuration or setup changes)
-- [ ] [CHANGELOG.md](CHANGELOG.md) updated
+- [ ] [README.md](../README.md) updated (if configuration or setup changes)
+- [ ] [CHANGELOG.md](../CHANGELOG.md) updated
 
 ## Type of change
 

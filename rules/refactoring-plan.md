@@ -180,11 +180,11 @@ WHERE descendant_id = @nodeId AND depth > 0;
 
 | 任务 | 产出 | 验收标准 | 依赖 |
 |------|------|----------|------|
-| BOM 展开集成测试 | `tests/BomExpandTests.cs` | 多级 BOM/循环引用/深度限制 | Phase 1 |
-| 差异计算集成测试 | `tests/VarianceTests.cs` | 新增/删除/修改/数量差异 | — |
+| BOM 展开集成测试 | BomExpandTests.cs | 多级 BOM/循环引用/深度限制 | Phase 1 |
+| 差异计算集成测试 | VarianceTests.cs | 新增/删除/修改/数量差异 | — |
 | Closure Table 实现 | `Data/BomClosureRepository.cs` | 替代递归 CTE | Phase 1 |
 | Closure Table 迁移脚本 | `migrations/add_closure_table.sql` | 自动填充现有数据 | 上一项 |
-| 同步服务测试 | `tests/SyncServiceTests.cs` | 离线/在线/冲突解决 | — |
+| 同步服务测试 | `tests/BomAddIn.UnitTests/SyncServiceTests.cs` | 离线/在线/冲突解决 | — |
 
 **BOM 展开测试用例**：
 ```csharp
@@ -208,7 +208,7 @@ public void BomExpand_HandlesAllCases(string scenario, int expected) { }
 |------|------|----------|------|
 | 线程审计 | `docs/thread-audit.md` | 所有 COM 调用点标记 | Phase 0 |
 | ExcelThreadDispatcher 全覆盖 | 源码修复 | WPF/Timer/Task.Run 全走 Dispatcher | 上一项 |
-| 压力测试 | `tests/ThreadingStressTests.cs` | 30min 连续运行 0 异常 | — |
+| 压力测试 | ThreadingStressTests.cs | 30min 连续运行 0 异常 | — |
 | 反模式文档 | `docs/threading-antipatterns.md` | 常见错误 + 正确写法 | — |
 
 **回滚策略**：线程修复逐文件提交，压力测试失败则 revert。
@@ -220,8 +220,8 @@ public void BomExpand_HandlesAllCases(string scenario, int expected) { }
 | BOM 展开优化（如需要） | 基于 Closure Table 的 O(1) 查询 | 比 baseline 提升 50%+ | Phase 2 |
 | 连接池优化（如需要） | `Data/ConnectionFactory.cs` | 连接复用 | — |
 | 性能基准测试 | `benchmarks/BomBenchmark.cs` | 自动化基准 | Phase 2 |
-| 迁移脚本验证 | `tests/MigrationTests.cs` | DEV→PROD 全路径 | Phase 0 |
-| 离线安装脚本 | `scripts/offline-install.ps1` | 无网络环境可安装 | — |
+| 迁移脚本验证 | `tests/BomAddIn.IntegrationTests/MigrationTests.cs` | DEV→PROD 全路径 | Phase 0 |
+| 离线安装脚本 | offline-install.ps1 | 无网络环境可安装 | — |
 | Semantic Versioning | git tag `v1.1.0` | 版本号与 CHANGELOG 一致 | — |
 
 **注意**：性能优化必须在有 baseline 数据后才进行，避免盲目优化。

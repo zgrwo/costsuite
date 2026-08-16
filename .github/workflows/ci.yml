@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       with:
         fetch-depth: 0
 
@@ -44,12 +44,12 @@ jobs:
         echo "✅ 全部 $count 个提交符合规范"
 
     - name: Setup .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v2
+      uses: microsoft/setup-msbuild@6fb02220983dee41ce7ae257b6f4d8f9bf5ed4ce # v2
 
     # duckdb.dll 为 36.7MB 原生库，按仓库策略不入库（.gitignore），
     # CI 构建前从 DuckDB 官方 Release 获取（版本锁定 v1.5.4，
@@ -178,18 +178,22 @@ jobs:
         }
         Write-Host "Architecture validation passed: all layer boundaries respected"
 
+    # 文档链接一致性（Markdown 链接/反引号路径存在性，防文档漂移——2026-08 治理对齐）
+    - name: Check doc links
+      run: python tools/check-doc-links.py
+
     # TODO: SonarQube — add SonarCloud/SonarQube scan step (plan §5.1: "SonarQube 无 Critical")
     # CodeQL 安全扫描已配置: .github/workflows/codeql.yml
 
     - name: Upload test results
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: test-results
         path: "**/*.trx"
 
     - name: Upload build artifacts
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: build-output
         path: |
@@ -205,10 +209,10 @@ jobs:
 
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
     - name: Download build artifacts
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
       with:
         name: build-output
         path: build-output
@@ -261,7 +265,7 @@ jobs:
         Write-Host "Files: $($files.Count)"
 
     - name: Upload distribution
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
       with:
         name: distribution
         path: build/dist/*.zip

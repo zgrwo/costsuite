@@ -29,7 +29,7 @@
 ### 3. 交叉验证自校验
 
 **现象**：`check(name, X, X)` 永远 PASS，3 处 Bug 因此漏过。
-**对策**：→ 已固化为 [AGENTS.md 闭环验证强制](../AGENTS.md) + [verify-manual.py](../scripts/verify-manual.py) 静态检测（自校验模式正则拦截）。
+**对策**：→ 已固化为 [AGENTS.md 闭环验证强制](../AGENTS.md) + verify-manual.py 静态检测（自校验模式正则拦截）。
 
 ### 4. 配置流断裂（声明了但未生效）
 
@@ -114,14 +114,14 @@
 | NLog + AOP 审计 | 原型无审计需求 | Console/Debug 日志即可 |
 | 规格文档写未验证功能 | ERP/gRPC/审批流 | 仅写已验证功能 |
 
-**判断准则（YAGNI 四问）**：→ 见 [architecture-reviewer-SKILL.md](../skills/architecture-reviewer-SKILL.md)（唯一权威定义处）。
+**判断准则（YAGNI 四问）**：→ 见 architecture-reviewer-SKILL.md（唯一权威定义处）。
 **架构简化 ≠ 降低质量**：简化的是**未使用的复杂度**，保留的是**有实际价值的分离**（如 Engine 层纯计算独立于 Service 层，可独立测试）。
 
 ---
 
 ## 三、重构方法论（跨项目验证过）
 
-> 重构方法论由 5 个项目验证提炼（见第一节反模式案例）。**执行模板**用 [refactoring-plan.md](refactoring-plan.md)，**每 Phase 守卫**用 [refactoring-guardian-SKILL.md](../skills/refactoring-guardian-SKILL.md)。
+> 重构方法论由 5 个项目验证提炼（见第一节反模式案例）。**执行模板**用 [refactoring-plan.md](refactoring-plan.md)，**每 Phase 守卫**用 refactoring-guardian-SKILL.md。
 
 ### 1. Phase 0 审计模式（先测量再动手）
 
@@ -196,16 +196,16 @@ Phase 0 审计结果 → 决策：
 |------|-----------|
 | 设计原则（SSOT/配置驱动/YAGNI/优雅降级） | [AGENTS.md 核心准则](../AGENTS.md) + [specification.md](specification.md) |
 | 架构层级与单向依赖 | [project-structure.md](project-structure.md) |
-| 闭环验证体系（交叉验证/黄金测试/差分测试） | [AGENTS.md 闭环验证强制](../AGENTS.md) + [verify-manual.py](../scripts/verify-manual.py) |
-| 分类型比较器 / 容差分层（数组/字典/标量） | [verify-manual.py compare](../scripts/verify-manual.py) |
-| 测试有效性（弱断言/缺测/命名守卫） | [test-quality-guard.py](../scripts/test-quality-guard.py) |
-| 影响范围测试路由（git diff → 受影响测试） | [run-affected-tests.py](../scripts/run-affected-tests.py) |
-| 防御编程（哨兵契约/异常过滤器/NaN 守卫） | [AGENTS.md 防错三原则](../AGENTS.md) + [sentinel-contract.md](sentinel-contract.md) + [skills/csharp-SKILL.md](../skills/csharp-SKILL.md) |
-| 环境就绪诊断（新开发者第一步） | [doctor.py](../scripts/doctor.py) |
-| 多注册表一致性（防注册遗漏） | [verify-registries.py](../scripts/verify-registries.py) |
-| 文档计数自动注入（防数字漂移） | [gen-doc-counts.py](../scripts/gen-doc-counts.py) |
+| 闭环验证体系（交叉验证/黄金测试/差分测试） | [AGENTS.md 闭环验证强制](../AGENTS.md) + verify-manual.py |
+| 分类型比较器 / 容差分层（数组/字典/标量） | verify-manual.py compare |
+| 测试有效性（弱断言/缺测/命名守卫） | test-quality-guard.py |
+| 影响范围测试路由（git diff → 受影响测试） | run-affected-tests.py |
+| 防御编程（哨兵契约/异常过滤器/NaN 守卫） | [AGENTS.md 防错三原则](../AGENTS.md) + [sentinel-contract.md](sentinel-contract.md) + skills/csharp-SKILL.md |
+| 环境就绪诊断（新开发者第一步） | doctor.py |
+| 多注册表一致性（防注册遗漏） | verify-registries.py |
+| 文档计数自动注入（防数字漂移） | gen-doc-counts.py |
 | YAGNI 移除文档（为什么移除 X + git 引用） | [specification.md](specification.md) + [adr-template.md](adr-template.md) |
 | 文档职责体系 | [documentation.md](documentation.md)（唯一权威） |
 | 会话管理（5 文件/20 轮/跨会话接力） | [AGENTS.md 会话管理](../AGENTS.md) |
-| 版本管理（SemVer + 发版流程） | [CONTRIBUTING.md 发版规范](../CONTRIBUTING.md) + [release.yml](../.github/workflows/release.yml)（release-please 自动） |
+| 版本管理（SemVer + 发版流程） | [CONTRIBUTING.md 发版规范](../CONTRIBUTING.md) + release.yml（release-please 自动） |
 | 工程化基础设施优先级 | [CONTRIBUTING.md](../CONTRIBUTING.md)（CI/模板/徽章清单已并入） |

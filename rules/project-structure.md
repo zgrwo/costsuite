@@ -41,7 +41,8 @@ BomAddIn.sln
 │   ├── BomAddIn.Diagnostic/                ← 环境诊断工具（控制台应用）
 │   ├── MemoryDiagnostic/                   ← 内存诊断工具
 │   ├── validate-commit-msg.sh              ← Conventional Commits 校验（CI 提交规范检查共用）
-│   └── git-hooks/commit-msg                ← 本地提交规范 hook（core.hooksPath 安装）
+│   ├── check-doc-links.py                    ← Markdown 链接/路径存在性检查（CI 文档门禁）
+│   └── git-hooks/commit-msg                  ← 本地提交规范 hook（core.hooksPath 安装）
 │
 ├── database/                               ← 数据库文件 (dev + prod 环境隔离)
 │   ├── dev/
