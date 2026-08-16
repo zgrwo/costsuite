@@ -222,8 +222,12 @@ jobs:
         # 版本单源：从最近 git tag 推导（发版时打 vX.Y.Z tag 即可，无需改本文件；
         # 无 tag 时回退 0.0.0 并带 ci 后缀，避免硬编码版本漂移——2026-08 治理对齐）
         $tag = git describe --tags --abbrev=0 2>$null
+        if (-not $tag) { $tag = "" }
         $baseVersion = if ($tag) { $tag.TrimStart('v') } else { "0.0.0" }
         $version = "$baseVersion-ci.${{ github.run_number }}"
+        # 重置 LASTEXITCODE：git describe 在浅克隆/无 tag 时 exit 128，
+        # 不重置会导致 GitHub Actions pwsh 步骤末尾误判失败（2026-08-16 实证）
+        $LASTEXITCODE = 0
         $zipName = "BomAddIn-v$version-${{ env.CONFIGURATION }}.zip"
         $zipPath = Join-Path $distDir $zipName
 

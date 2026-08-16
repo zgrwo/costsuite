@@ -1,4 +1,4 @@
-﻿# Authenticode Signing Script
+# Authenticode Signing Script
 # Signs the packed .xll file with a code signing certificate.
 #
 # Usage:
@@ -79,6 +79,7 @@ New-Item -ItemType Directory -Force -Path $DistDir | Out-Null
 if (-not $Version) {
     $tag = git -C $RepoRoot describe --tags --abbrev=0 2>$null
     $Version = if ($tag) { $tag.TrimStart('v') } else { "0.0.0" }
+    $LASTEXITCODE = 0  # git describe 无 tag 时 exit 128，显式重置防误判
 }
 $zipName = "BomAddIn-v$Version-$Configuration.zip"
 $zipPath = "$DistDir\$zipName"
